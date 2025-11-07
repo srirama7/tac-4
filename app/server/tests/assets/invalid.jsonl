@@ -1,0 +1,3 @@
+{"valid": "first line", "id": 1}
+{"invalid": "missing closing brace", "id": 2
+{"valid": "third line", "id": 3}

@@ -6,7 +6,14 @@ import os
 import io
 from pathlib import Path
 from unittest.mock import patch
-from core.file_processor import convert_csv_to_sqlite, convert_json_to_sqlite
+from core.file_processor import (
+    convert_csv_to_sqlite,
+    convert_json_to_sqlite,
+    convert_jsonl_to_sqlite,
+    parse_jsonl_file,
+    flatten_record,
+    discover_all_fields
+)
 
 
 @pytest.fixture
@@ -162,3 +169,70 @@ class TestFileProcessor:
             convert_json_to_sqlite(json_data, table_name)
         
         assert "JSON array is empty" in str(exc_info.value)
+
+    # JSONL Tests
+
+    def test_parse_jsonl_file_success(self):
+        jsonl_data = b'{"name": "John", "age": 30}\n{"name": "Jane", "age": 25}\n'
+        records = parse_jsonl_file(jsonl_data)
+
+        assert len(records) == 2
+        assert records[0]['name'] == 'John'
+        assert records[0]['age'] == 30
+
+    def test_flatten_record_nested_objects(self):
+        record = {"user": {"name": "John", "address": {"city": "NYC"}}, "active": True}
+        flattened = flatten_record(record)
+
+        assert flattened['user__name'] == 'John'
+        assert flattened['user__address__city'] == 'NYC'
+        assert flattened['active'] == True
+
+    def test_flatten_record_arrays(self):
+        record = {"name": "Product", "tags": ["python", "sql", "data"]}
+        flattened = flatten_record(record)
+
+        assert flattened['name'] == 'Product'
+        assert flattened['tags_0'] == 'python'
+        assert flattened['tags_1'] == 'sql'
+
+    def test_discover_all_fields_varying_schemas(self):
+        records = [
+            {"name": "John", "age": 30, "city": "NYC"},
+            {"name": "Jane", "age": 25, "country": "USA"}
+        ]
+        fields = discover_all_fields(records)
+
+        assert 'name' in fields
+        assert 'age' in fields
+        assert 'city' in fields
+        assert 'country' in fields
+
+    def test_convert_jsonl_to_sqlite_success(self, test_db, test_assets_dir):
+        jsonl_file = test_assets_dir / "test_events.jsonl"
+        with open(jsonl_file, 'rb') as f:
+            jsonl_data = f.read()
+
+        result = convert_jsonl_to_sqlite(jsonl_data, "events")
+
+        assert result['table_name'] == "events"
+        assert result['row_count'] == 4
+        assert any('user__' in key for key in result['schema'])
+
+    def test_convert_jsonl_to_sqlite_empty_file(self, test_db):
+        jsonl_data = b''
+
+        with pytest.raises(ValueError) as exc_info:
+            convert_jsonl_to_sqlite(jsonl_data, "empty")
+
+        assert "empty" in str(exc_info.value).lower()
+
+    def test_convert_jsonl_to_sqlite_invalid_format(self, test_db, test_assets_dir):
+        jsonl_file = test_assets_dir / "invalid.jsonl"
+        with open(jsonl_file, 'rb') as f:
+            jsonl_data = f.read()
+
+        with pytest.raises(ValueError) as exc_info:
+            convert_jsonl_to_sqlite(jsonl_data, "invalid")
+
+        assert "Line 2" in str(exc_info.value)

@@ -1,0 +1,5 @@
+{"timestamp": "2024-01-15T10:00:00Z", "level": "INFO", "message": "Application started", "service": "web-api", "version": "1.0.0"}
+{"timestamp": "2024-01-15T10:05:00Z", "level": "WARN", "message": "High memory usage", "service": "web-api", "metrics": {"memory_mb": 512, "cpu_percent": 75}}
+{"timestamp": "2024-01-15T10:10:00Z", "level": "ERROR", "message": "Database connection failed", "service": "db-worker", "error": {"code": "ECONNREFUSED", "details": "Connection refused on port 5432"}, "retry_count": 3}
+{"timestamp": "2024-01-15T10:15:00Z", "level": "INFO", "message": "User login successful", "service": "auth-service", "user_id": 12345}
+{"timestamp": "2024-01-15T10:20:00Z", "level": "DEBUG", "message": "Cache hit", "service": "web-api", "cache_key": "user_12345_profile", "ttl_seconds": 300}
