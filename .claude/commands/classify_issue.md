@@ -1,20 +1,30 @@
 # Github Issue Command Selection
 
-Based on the `Github Issue` below, follow the `Instructions` to select the appropriate command to execute based on the `Command Mapping`.
+Based on the `Github Issue` below, select the appropriate command to execute based on the `Command Mapping`.
 
-## Instructions
+## CRITICAL INSTRUCTIONS
 
-- Based on the details in the `Github Issue`, select the appropriate command to execute.
-- Respond exclusively with '/' followed by the command to execute.
-- Use the command mapping to help you decide which command to respond with.
-- Think hard about the command to execute.
+**YOU MUST RESPOND WITH ONLY ONE OF THESE EXACT VALUES - NOTHING ELSE:**
+- `/chore`
+- `/bug`
+- `/feature`
+- `0`
+
+**DO NOT:**
+- Add explanations
+- Add reasoning
+- Add any other text
+- Use markdown
+- Use code blocks
+
+**JUST OUTPUT ONE OF THE FOUR VALUES ABOVE.**
 
 ## Command Mapping
 
-- Respond with `/chore` if the issue is a chore.
-- Respond with `/bug` if the issue is a bug.
-- Respond with `/feature` if the issue is a feature.
-- Respond with `0` if the issue isn't any of the above.
+- `/feature` - Issue requests NEW functionality, feature, or capability
+- `/bug` - Issue reports something BROKEN that needs fixing
+- `/chore` - Issue is maintenance, documentation, or housekeeping
+- `0` - Issue doesn't fit any category above
 
 ## Github Issue
 

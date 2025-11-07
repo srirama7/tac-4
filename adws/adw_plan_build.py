@@ -30,6 +30,7 @@ Environment Requirements:
 import subprocess
 import sys
 import os
+import re
 import logging
 from typing import Tuple, Optional, Union
 from dotenv import load_dotenv
@@ -60,22 +61,48 @@ AGENT_PR_CREATOR = "pr_creator"
 
 def check_env_vars(logger: Optional[logging.Logger] = None) -> None:
     """Check that all required environment variables are set."""
-    required_vars = [
-        "ANTHROPIC_API_KEY",
-        "CLAUDE_CODE_PATH",
-    ]
-    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    # No required environment variables - Claude Code can work with local auth
+    # CLAUDE_CODE_PATH has a default value of 'claude'
 
-    if missing_vars:
-        error_msg = "Error: Missing required environment variables:"
+    # Check if Claude Code authentication is configured (either API key or local auth)
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        info_msg = "Note: ANTHROPIC_API_KEY not set. Using Claude Code local authentication (claude login)."
+        if logger:
+            logger.info(info_msg)
+        else:
+            print(info_msg, file=sys.stderr)
+
+    # Verify Claude Code CLI is installed
+    claude_path = os.getenv("CLAUDE_CODE_PATH", "claude")
+    try:
+        result = subprocess.run(
+            [claude_path, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            encoding="utf-8",
+            errors="replace"
+        )
+        if result.returncode != 0:
+            error_msg = f"Error: Claude Code CLI not found at '{claude_path}'. Please ensure Claude Code is installed."
+            if logger:
+                logger.error(error_msg)
+            else:
+                print(error_msg, file=sys.stderr)
+            sys.exit(1)
+    except FileNotFoundError:
+        error_msg = f"Error: Claude Code CLI not found at '{claude_path}'. Please ensure Claude Code is installed."
         if logger:
             logger.error(error_msg)
-            for var in missing_vars:
-                logger.error(f"  - {var}")
         else:
             print(error_msg, file=sys.stderr)
-            for var in missing_vars:
-                print(f"  - {var}", file=sys.stderr)
+        sys.exit(1)
+    except subprocess.TimeoutExpired:
+        error_msg = "Error: Claude Code CLI command timed out."
+        if logger:
+            logger.error(error_msg)
+        else:
+            print(error_msg, file=sys.stderr)
         sys.exit(1)
 
 
@@ -137,13 +164,29 @@ def classify_issue(
     if not issue_response.success:
         return None, issue_response.output
 
-    issue_command = issue_response.output.strip()
+    # Extract command from response - handle cases where Claude adds extra text
+    response_text = issue_response.output.strip()
+
+    # Try to find one of the valid commands in the response
+    # First try exact match on first line
+    first_line = response_text.split('\n')[0].strip()
+    if first_line in ["/chore", "/bug", "/feature", "0"]:
+        issue_command = first_line
+    else:
+        # Try to find command pattern anywhere in response
+        match = re.search(r'/(chore|bug|feature)', response_text)
+        if match:
+            issue_command = match.group(0)
+        elif "0" in response_text:
+            issue_command = "0"
+        else:
+            return None, f"Invalid command selected: {response_text}"
 
     if issue_command == "0":
-        return None, f"No command selected: {issue_response.output}"
+        return None, f"No command selected: {response_text}"
 
     if issue_command not in ["/chore", "/bug", "/feature"]:
-        return None, f"Invalid command selected: {issue_response.output}"
+        return None, f"Invalid command selected: {response_text}"
 
     return issue_command, None  # type: ignore
 

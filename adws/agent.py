@@ -36,22 +36,22 @@ def check_claude_installed() -> Optional[str]:
 
 def parse_jsonl_output(output_file: str) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
     """Parse JSONL output file and return all messages and the result message.
-    
+
     Returns:
         Tuple of (all_messages, result_message) where result_message is None if not found
     """
     try:
-        with open(output_file, "r") as f:
+        with open(output_file, "r", encoding="utf-8", errors="replace") as f:
             # Read all lines and parse each as JSON
             messages = [json.loads(line) for line in f if line.strip()]
-            
+
             # Find the result message (should be the last one)
             result_message = None
             for message in reversed(messages):
                 if message.get("type") == "result":
                     result_message = message
                     break
-                    
+
             return messages, result_message
     except Exception as e:
         print(f"Error parsing JSONL file: {e}", file=sys.stderr)
@@ -60,23 +60,23 @@ def parse_jsonl_output(output_file: str) -> Tuple[List[Dict[str, Any]], Optional
 
 def convert_jsonl_to_json(jsonl_file: str) -> str:
     """Convert JSONL file to JSON array file.
-    
+
     Creates a .json file with the same name as the .jsonl file,
     containing all messages as a JSON array.
-    
+
     Returns:
         Path to the created JSON file
     """
     # Create JSON filename by replacing .jsonl with .json
     json_file = jsonl_file.replace('.jsonl', '.json')
-    
+
     # Parse the JSONL file
     messages, _ = parse_jsonl_output(jsonl_file)
-    
+
     # Write as JSON array
-    with open(json_file, 'w') as f:
+    with open(json_file, 'w', encoding="utf-8") as f:
         json.dump(messages, f, indent=2)
-    
+
     print(f"Created JSON file: {json_file}")
     return json_file
 
@@ -147,9 +147,9 @@ def save_prompt(prompt: str, adw_id: str, agent_name: str = "ops") -> None:
     
     # Save prompt to file
     prompt_file = os.path.join(prompt_dir, f"{command_name}.txt")
-    with open(prompt_file, "w") as f:
+    with open(prompt_file, "w", encoding="utf-8") as f:
         f.write(prompt)
-    
+
     print(f"Saved prompt to: {prompt_file}")
 
 
@@ -179,44 +179,48 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
     if request.dangerously_skip_permissions:
         cmd.append("--dangerously-skip-permissions")
 
-    # Set up environment with only required variables
-    env = get_claude_env()
+    # Set up environment - if ANTHROPIC_API_KEY is not set, inherit parent environment
+    # so Claude Code can use local authentication (claude login)
+    if os.getenv("ANTHROPIC_API_KEY"):
+        env = get_claude_env()
+    else:
+        env = None  # Inherit parent environment for local Claude Code authentication
 
     try:
         # Execute Claude Code and pipe output to file
-        with open(request.output_file, "w") as f:
+        with open(request.output_file, "w", encoding="utf-8") as f:
             result = subprocess.run(
-                cmd, stdout=f, stderr=subprocess.PIPE, text=True, env=env
+                cmd, stdout=f, stderr=subprocess.PIPE, text=True, env=env, encoding="utf-8", errors="replace"
             )
 
         if result.returncode == 0:
             print(f"Output saved to: {request.output_file}")
-            
+
             # Parse the JSONL file
             messages, result_message = parse_jsonl_output(request.output_file)
-            
+
             # Convert JSONL to JSON array file
             json_file = convert_jsonl_to_json(request.output_file)
-            
+
             if result_message:
                 # Extract session_id from result message
                 session_id = result_message.get("session_id")
-                
+
                 # Check if there was an error in the result
                 is_error = result_message.get("is_error", False)
                 result_text = result_message.get("result", "")
-                
+
                 return AgentPromptResponse(
-                    output=result_text, 
+                    output=result_text,
                     success=not is_error,
                     session_id=session_id
                 )
             else:
                 # No result message found, return raw output
-                with open(request.output_file, "r") as f:
+                with open(request.output_file, "r", encoding="utf-8", errors="replace") as f:
                     raw_output = f.read()
                 return AgentPromptResponse(
-                    output=raw_output, 
+                    output=raw_output,
                     success=True,
                     session_id=None
                 )
