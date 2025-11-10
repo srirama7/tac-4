@@ -208,4 +208,4 @@ uv run pytest tests/test_sql_injection.py -v
 
 **CORS issues:**
 - Ensure backend is running on port 8000
-- Check vite.config.ts proxy settings
+- Check vite.config.ts proxy settings# New Feature: JSONL Support
