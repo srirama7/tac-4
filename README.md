@@ -2,7 +2,7 @@
 
 A web application that converts natural language queries to SQL using AI, built with FastAPI and Vite + TypeScript.
 
-## Features
+## Features...............
 
 - 🗣️ Natural language to SQL conversion using OpenAI or Anthropic
 - 📁 Drag-and-drop file upload (.csv and .json)
