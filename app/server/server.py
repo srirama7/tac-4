@@ -1,5 +1,6 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from datetime import datetime
 import os
 import sqlite3
@@ -7,6 +8,7 @@ import traceback
 from dotenv import load_dotenv
 import logging
 import sys
+from io import BytesIO
 
 from core.data_models import (
     FileUploadResponse,
@@ -17,7 +19,9 @@ from core.data_models import (
     InsightsResponse,
     HealthCheckResponse,
     TableSchema,
-    ColumnInfo
+    ColumnInfo,
+    ExportRequest,
+    ExportResponse
 )
 from core.file_processor import convert_csv_to_sqlite, convert_json_to_sqlite, convert_jsonl_to_sqlite
 from core.llm_processor import generate_sql
@@ -28,6 +32,12 @@ from core.sql_security import (
     validate_identifier,
     check_table_exists,
     SQLSecurityError
+)
+from core.export_processor import (
+    export_to_csv,
+    export_to_json,
+    export_to_excel,
+    generate_export_filename
 )
 
 # Load .env file from server directory
@@ -206,6 +216,58 @@ async def generate_insights_endpoint(request: InsightsRequest) -> InsightsRespon
             generated_at=datetime.now(),
             error=str(e)
         )
+
+@app.post("/api/export")
+async def export_data(request: ExportRequest):
+    """Export query results to CSV, JSON, or Excel format"""
+    try:
+        # Execute SQL query safely
+        result = execute_sql_safely(request.sql)
+
+        if result['error']:
+            raise Exception(result['error'])
+
+        data = result['results']
+        columns = result['columns']
+
+        # Generate filename
+        filename = request.filename if request.filename else generate_export_filename(request.format)
+
+        # Ensure filename has correct extension
+        extensions = {'csv': '.csv', 'json': '.json', 'excel': '.xlsx'}
+        if not filename.endswith(extensions[request.format]):
+            filename = filename.rsplit('.', 1)[0] + extensions[request.format]
+
+        # Export data based on format
+        if request.format == 'csv':
+            content = export_to_csv(data, columns)
+            media_type = "text/csv"
+        elif request.format == 'json':
+            content = export_to_json(data, columns)
+            media_type = "application/json"
+        elif request.format == 'excel':
+            content = export_to_excel(data, columns)
+            media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        else:
+            raise HTTPException(400, f"Unsupported format: {request.format}")
+
+        # Log export operation
+        logger.info(f"[SUCCESS] Export: format={request.format}, rows={len(data)}, filename={filename}")
+
+        # Return as streaming response with download headers
+        return StreamingResponse(
+            BytesIO(content),
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+                "Access-Control-Expose-Headers": "Content-Disposition"
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"[ERROR] Export failed: {str(e)}")
+        logger.error(f"[ERROR] Full traceback:\n{traceback.format_exc()}")
+        raise HTTPException(500, f"Export error: {str(e)}")
 
 @app.get("/api/health", response_model=HealthCheckResponse)
 async def health_check() -> HealthCheckResponse:

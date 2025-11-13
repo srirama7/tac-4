@@ -80,3 +80,14 @@ class HealthCheckResponse(BaseModel):
     tables_count: int
     version: str = "1.0.0"
     uptime_seconds: float
+
+# Export Models
+class ExportRequest(BaseModel):
+    sql: str = Field(..., description="SQL query to export results from")
+    format: Literal["csv", "json", "excel"] = Field(..., description="Export format")
+    filename: Optional[str] = Field(None, description="Optional custom filename (without extension)")
+
+class ExportResponse(BaseModel):
+    success: bool
+    filename: str
+    error: Optional[str] = None

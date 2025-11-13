@@ -48,24 +48,14 @@ from adw_modules.data_types import GitHubIssue, IssueClassSlashCommand
 
 
 def check_env_vars(logger: Optional[logging.Logger] = None) -> None:
-    """Check that all required environment variables are set."""
-    required_vars = [
-        "ANTHROPIC_API_KEY",
-        "CLAUDE_CODE_PATH",
-    ]
-    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    """Check that all required environment variables are set.
 
-    if missing_vars:
-        error_msg = "Error: Missing required environment variables:"
-        if logger:
-            logger.error(error_msg)
-            for var in missing_vars:
-                logger.error(f"  - {var}")
-        else:
-            print(error_msg, file=sys.stderr)
-            for var in missing_vars:
-                print(f"  - {var}", file=sys.stderr)
-        sys.exit(1)
+    Note: ANTHROPIC_API_KEY is not required when using Claude Code CLI,
+    as Claude Code handles authentication automatically.
+    """
+    # No required vars when using Claude Code CLI
+    # Claude Code handles authentication automatically
+    pass
 
 
 def main():

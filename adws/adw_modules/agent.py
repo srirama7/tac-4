@@ -45,7 +45,7 @@ def parse_jsonl_output(
         Tuple of (all_messages, result_message) where result_message is None if not found
     """
     try:
-        with open(output_file, "r") as f:
+        with open(output_file, "r", encoding="utf-8") as f:
             # Read all lines and parse each as JSON
             messages = [json.loads(line) for line in f if line.strip()]
 
@@ -77,59 +77,38 @@ def convert_jsonl_to_json(jsonl_file: str) -> str:
     # Parse the JSONL file
     messages, _ = parse_jsonl_output(jsonl_file)
 
-    # Write as JSON array
-    with open(json_file, "w") as f:
-        json.dump(messages, f, indent=2)
+    # Write as JSON array with UTF-8 encoding
+    with open(json_file, "w", encoding="utf-8") as f:
+        json.dump(messages, f, indent=2, ensure_ascii=False)
 
     print(f"Created JSON file: {json_file}")
     return json_file
 
 
 def get_claude_env() -> Dict[str, str]:
-    """Get only the required environment variables for Claude Code execution.
+    """Get environment variables for Claude Code execution.
 
-    Returns a dictionary containing only the necessary environment variables
-    based on .env.sample configuration.
+    Claude Code handles its own authentication automatically when invoked via CLI,
+    so we inherit from the parent environment instead of creating a restricted one.
+    This allows Claude Code to access its stored credentials.
 
-    Subprocess env behavior:
-    - env=None → Inherits parent's environment (default)
-    - env={} → Empty environment (no variables)
-    - env=custom_dict → Only uses specified variables
-
-    So this will work with gh authentication:
-    # These are equivalent:
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    result = subprocess.run(cmd, capture_output=True, text=True, env=None)
-
-    But this will NOT work (no PATH, no auth):
-    result = subprocess.run(cmd, capture_output=True, text=True, env={})
+    We only add/override variables that need custom values.
     """
-    required_env_vars = {
-        # Anthropic Configuration (required)
-        "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY"),
-        # Claude Code Configuration
-        "CLAUDE_CODE_PATH": os.getenv("CLAUDE_CODE_PATH", "claude"),
-        "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": os.getenv(
-            "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR", "true"
-        ),
-        # Agent Cloud Sandbox Environment (optional)
-        "E2B_API_KEY": os.getenv("E2B_API_KEY"),
-        # Basic environment variables Claude Code might need
-        "HOME": os.getenv("HOME"),
-        "USER": os.getenv("USER"),
-        "PATH": os.getenv("PATH"),
-        "SHELL": os.getenv("SHELL"),
-        "TERM": os.getenv("TERM"),
-    }
+    # Start with parent environment
+    env = os.environ.copy()
 
-    # Only add GitHub tokens if GITHUB_PAT exists
+    # Override specific variables if needed
+    env["CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR"] = os.getenv(
+        "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR", "true"
+    )
+
+    # Only add GitHub token if it exists
     github_pat = os.getenv("GITHUB_PAT")
     if github_pat:
-        required_env_vars["GITHUB_PAT"] = github_pat
-        required_env_vars["GH_TOKEN"] = github_pat  # Claude Code uses GH_TOKEN
+        env["GITHUB_PAT"] = github_pat
+        env["GH_TOKEN"] = github_pat  # Claude Code uses GH_TOKEN
 
-    # Filter out None values
-    return {k: v for k, v in required_env_vars.items() if v is not None}
+    return env
 
 
 def save_prompt(prompt: str, adw_id: str, agent_name: str = "ops") -> None:
