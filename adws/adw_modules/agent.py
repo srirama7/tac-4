@@ -25,7 +25,7 @@ def check_claude_installed() -> Optional[str]:
     """Check if Claude Code CLI is installed. Return error message if not."""
     try:
         result = subprocess.run(
-            [CLAUDE_PATH, "--version"], capture_output=True, text=True
+            [CLAUDE_PATH, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
         if result.returncode != 0:
             return (
@@ -45,7 +45,7 @@ def parse_jsonl_output(
         Tuple of (all_messages, result_message) where result_message is None if not found
     """
     try:
-        with open(output_file, "r") as f:
+        with open(output_file, "r", encoding='utf-8') as f:
             # Read all lines and parse each as JSON
             messages = [json.loads(line) for line in f if line.strip()]
 
@@ -72,20 +72,31 @@ def convert_jsonl_to_json(jsonl_file: str) -> str:
         Path to the created JSON file
     """
     # Create JSON filename by replacing .jsonl with .json
+<<<<<<< Updated upstream:adws/adw_modules/agent.py
     json_file = jsonl_file.replace(".jsonl", ".json")
+=======
+    json_file = jsonl_file.replace('.jsonl', '.json')
+>>>>>>> Stashed changes:adws/agent.py
 
     # Parse the JSONL file
     messages, _ = parse_jsonl_output(jsonl_file)
 
+<<<<<<< Updated upstream:adws/adw_modules/agent.py
     # Write as JSON array
     with open(json_file, "w") as f:
         json.dump(messages, f, indent=2)
+=======
+    # Write as JSON array with UTF-8 encoding
+    with open(json_file, 'w', encoding='utf-8') as f:
+        json.dump(messages, f, indent=2, ensure_ascii=False)
+>>>>>>> Stashed changes:adws/agent.py
 
     print(f"Created JSON file: {json_file}")
     return json_file
 
 
 def get_claude_env() -> Dict[str, str]:
+<<<<<<< Updated upstream:adws/adw_modules/agent.py
     """Get only the required environment variables for Claude Code execution.
 
     Returns a dictionary containing only the necessary environment variables
@@ -130,6 +141,29 @@ def get_claude_env() -> Dict[str, str]:
 
     # Filter out None values
     return {k: v for k, v in required_env_vars.items() if v is not None}
+=======
+    """Get environment variables for Claude Code execution.
+
+    Claude Code handles its own authentication automatically, so we inherit
+    from the parent environment instead of creating a restricted one.
+    This allows Claude Code to access its stored credentials.
+
+    We only add/override variables that need custom values.
+    """
+    # Start with parent environment
+    env = os.environ.copy()
+
+    # Override specific variables if needed
+    env["CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR"] = os.getenv("CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR", "true")
+
+    # Only add GitHub token if it exists
+    github_pat = os.getenv("GITHUB_PAT")
+    if github_pat:
+        env["GITHUB_PAT"] = github_pat
+        env["GH_TOKEN"] = github_pat  # Claude Code uses GH_TOKEN
+
+    return env
+>>>>>>> Stashed changes:adws/agent.py
 
 
 def save_prompt(prompt: str, adw_id: str, agent_name: str = "ops") -> None:
@@ -149,9 +183,13 @@ def save_prompt(prompt: str, adw_id: str, agent_name: str = "ops") -> None:
     prompt_dir = os.path.join(project_root, "agents", adw_id, agent_name, "prompts")
     os.makedirs(prompt_dir, exist_ok=True)
 
+<<<<<<< Updated upstream:adws/adw_modules/agent.py
     # Save prompt to file
+=======
+    # Save prompt to file with UTF-8 encoding
+>>>>>>> Stashed changes:adws/agent.py
     prompt_file = os.path.join(prompt_dir, f"{command_name}.txt")
-    with open(prompt_file, "w") as f:
+    with open(prompt_file, "w", encoding='utf-8') as f:
         f.write(prompt)
 
     print(f"Saved prompt to: {prompt_file}")
@@ -187,11 +225,22 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
     env = get_claude_env()
 
     try:
-        # Execute Claude Code and pipe output to file
-        with open(request.output_file, "w") as f:
-            result = subprocess.run(
-                cmd, stdout=f, stderr=subprocess.PIPE, text=True, env=env
-            )
+        # Execute Claude Code with output capture
+        # Use capture_output=False and pipe stdout/stderr as bytes to control encoding
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env
+        )
+
+        # Decode output with UTF-8, using error handling for any problematic bytes
+        stdout_text = result.stdout.decode('utf-8', errors='replace')
+        stderr_text = result.stderr.decode('utf-8', errors='replace')
+
+        # Write output to file
+        with open(request.output_file, "w", encoding='utf-8') as f:
+            f.write(stdout_text)
 
         if result.returncode == 0:
             print(f"Output saved to: {request.output_file}")
@@ -199,8 +248,16 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
             # Parse the JSONL file
             messages, result_message = parse_jsonl_output(request.output_file)
 
+<<<<<<< Updated upstream:adws/adw_modules/agent.py
             # Convert JSONL to JSON array file
             json_file = convert_jsonl_to_json(request.output_file)
+=======
+            # Convert JSONL to JSON array file (with error handling)
+            try:
+                json_file = convert_jsonl_to_json(request.output_file)
+            except Exception as e:
+                print(f"Warning: Could not convert JSONL to JSON: {e}", file=sys.stderr)
+>>>>>>> Stashed changes:adws/agent.py
 
             if result_message:
                 # Extract session_id from result message
@@ -208,6 +265,7 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
 
                 # Check if there was an error in the result
                 is_error = result_message.get("is_error", False)
+<<<<<<< Updated upstream:adws/adw_modules/agent.py
                 subtype = result_message.get("subtype", "")
                 
                 # Handle error_during_execution case where there's no result field
@@ -229,8 +287,31 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
                 return AgentPromptResponse(
                     output=raw_output, success=True, session_id=None
                 )
+=======
+                result_text = result_message.get("result", "")
+
+                return AgentPromptResponse(
+                    output=result_text,
+                    success=not is_error,
+                    session_id=session_id
+                )
+            else:
+                # No result message found, return raw output
+                try:
+                    with open(request.output_file, "r", encoding='utf-8') as f:
+                        raw_output = f.read()
+                    return AgentPromptResponse(
+                        output=raw_output,
+                        success=True,
+                        session_id=None
+                    )
+                except Exception as e:
+                    error_msg = f"Error reading Claude Code output: {e}"
+                    print(error_msg, file=sys.stderr)
+                    return AgentPromptResponse(output=error_msg, success=False, session_id=None)
+>>>>>>> Stashed changes:adws/agent.py
         else:
-            error_msg = f"Claude Code error: {result.stderr}"
+            error_msg = f"Claude Code error: {stderr_text}"
             print(error_msg, file=sys.stderr)
             return AgentPromptResponse(output=error_msg, success=False, session_id=None)
 

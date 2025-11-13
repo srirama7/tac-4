@@ -1,0 +1,40 @@
+Here’s the extracted text from the image:
+
+---
+
+## Validation
+
+Validate your work by running the *Backend Validation*, *Frontend Validation* and *E2E Validation*.
+Run them in order top to bottom. If you run into any errors at all, stop and resolve them immediately then rerun every validation step.
+
+### Backend Validation
+
+```
+- cd app/server  
+- uv run ruff check .  If there are errors at all, resolve them.  
+- uv run pytest  If there are any errors at all, resolve them.  
+- uv run python -m py_compile server.py  If there are errors at all, resolve them.  
+```
+
+### Frontend Validation
+
+```
+- cd app/client  
+- bun tsc --noEmit  If there are any errors at all, resolve them.  
+- bun run build  If there are any errors at all, resolve them.  
+```
+
+### E2E Validation
+
+Use the Playwright MCP server to run the simple workflow.
+
+#### 1. Validate Query Execution
+
+1. Open a browser to `http://localhost:5173/`.
+2. Then take a screenshot and save it to `./e2e_before.png`.
+3. Type `select newest 7 products sort by price desc`.
+4. Query
+5. Take a screenshot of the results and save it to `./e2e_after.png`.
+6. Read both images and verify our natural language query was executed correctly. Confirm 7 results are returned.
+
+---

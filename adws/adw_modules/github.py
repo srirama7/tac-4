@@ -54,15 +54,15 @@ def get_repo_url() -> str:
     try:
         result = subprocess.run(
             ["git", "remote", "get-url", "origin"],
-            capture_output=True,
-            text=True,
-            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
-        return result.stdout.strip()
-    except subprocess.CalledProcessError:
-        raise ValueError(
-            "No git remote 'origin' found. Please ensure you're in a git repository with a remote."
-        )
+        if result.returncode == 0:
+            return result.stdout.decode('utf-8', errors='replace').strip()
+        else:
+            raise ValueError(
+                "No git remote 'origin' found. Please ensure you're in a git repository with a remote."
+            )
     except FileNotFoundError:
         raise ValueError("git command not found. Please ensure git is installed.")
 
@@ -91,16 +91,20 @@ def fetch_issue(issue_number: str, repo_path: str) -> GitHubIssue:
     env = get_github_env()
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, env=env)
+        # Capture output as bytes and decode with UTF-8 to avoid Windows cp1252 encoding issues
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
 
         if result.returncode == 0:
+            # Decode output with UTF-8
+            stdout_text = result.stdout.decode('utf-8', errors='replace')
             # Parse JSON response into Pydantic model
-            issue_data = json.loads(result.stdout)
+            issue_data = json.loads(stdout_text)
             issue = GitHubIssue(**issue_data)
 
             return issue
         else:
-            print(result.stderr, file=sys.stderr)
+            stderr_text = result.stderr.decode('utf-8', errors='replace')
+            print(stderr_text, file=sys.stderr)
             sys.exit(result.returncode)
     except FileNotFoundError:
         print("Error: GitHub CLI (gh) is not installed.", file=sys.stderr)
@@ -142,13 +146,20 @@ def make_issue_comment(issue_id: str, comment: str) -> None:
     env = get_github_env()
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, env=env)
+        # Capture output as bytes and decode with UTF-8 to avoid Windows cp1252 encoding issues
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
 
         if result.returncode == 0:
             print(f"Successfully posted comment to issue #{issue_id}")
         else:
+<<<<<<< Updated upstream:adws/adw_modules/github.py
             print(f"Error posting comment: {result.stderr}", file=sys.stderr)
             raise RuntimeError(f"Failed to post comment: {result.stderr}")
+=======
+            stderr_text = result.stderr.decode('utf-8', errors='replace')
+            print(f"Error posting comment: {stderr_text}", file=sys.stderr)
+            sys.exit(result.returncode)
+>>>>>>> Stashed changes:adws/github.py
     except Exception as e:
         print(f"Error posting comment: {e}", file=sys.stderr)
         raise
@@ -176,9 +187,10 @@ def mark_issue_in_progress(issue_id: str) -> None:
     env = get_github_env()
 
     # Try to add label (may fail if label doesn't exist)
-    result = subprocess.run(cmd, capture_output=True, text=True, env=env)
+    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
     if result.returncode != 0:
-        print(f"Note: Could not add 'in_progress' label: {result.stderr}")
+        stderr_text = result.stderr.decode('utf-8', errors='replace')
+        print(f"Note: Could not add 'in_progress' label: {stderr_text}")
 
     # Post comment indicating work has started
     # make_issue_comment(issue_id, "🚧 ADW is working on this issue...")
@@ -194,7 +206,7 @@ def mark_issue_in_progress(issue_id: str) -> None:
         "--add-assignee",
         "@me",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, env=env)
+    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
     if result.returncode == 0:
         print(f"Assigned issue #{issue_id} to self")
 
@@ -220,18 +232,22 @@ def fetch_open_issues(repo_path: str) -> List[GitHubIssueListItem]:
         env = get_github_env()
 
         # DEBUG level - not printing command
+        # Capture output as bytes and decode with UTF-8 to avoid Windows cp1252 encoding issues
         result = subprocess.run(
-            cmd, capture_output=True, text=True, check=True, env=env
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env
         )
 
-        issues_data = json.loads(result.stdout)
-        issues = [GitHubIssueListItem(**issue_data) for issue_data in issues_data]
-        print(f"Fetched {len(issues)} open issues")
-        return issues
+        if result.returncode == 0:
+            stdout_text = result.stdout.decode('utf-8', errors='replace')
+            issues_data = json.loads(stdout_text)
+            issues = [GitHubIssueListItem(**issue_data) for issue_data in issues_data]
+            print(f"Fetched {len(issues)} open issues")
+            return issues
+        else:
+            stderr_text = result.stderr.decode('utf-8', errors='replace')
+            print(f"ERROR: Failed to fetch issues: {stderr_text}", file=sys.stderr)
+            return []
 
-    except subprocess.CalledProcessError as e:
-        print(f"ERROR: Failed to fetch issues: {e.stderr}", file=sys.stderr)
-        return []
     except json.JSONDecodeError as e:
         print(f"ERROR: Failed to parse issues JSON: {e}", file=sys.stderr)
         return []
@@ -254,24 +270,29 @@ def fetch_issue_comments(repo_path: str, issue_number: int) -> List[Dict]:
         # Set up environment with GitHub token if available
         env = get_github_env()
 
+        # Capture output as bytes and decode with UTF-8 to avoid Windows cp1252 encoding issues
         result = subprocess.run(
-            cmd, capture_output=True, text=True, check=True, env=env
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env
         )
-        data = json.loads(result.stdout)
-        comments = data.get("comments", [])
 
-        # Sort comments by creation time
-        comments.sort(key=lambda c: c.get("createdAt", ""))
+        if result.returncode == 0:
+            stdout_text = result.stdout.decode('utf-8', errors='replace')
+            data = json.loads(stdout_text)
+            comments = data.get("comments", [])
 
-        # DEBUG level - not printing
-        return comments
+            # Sort comments by creation time
+            comments.sort(key=lambda c: c.get("createdAt", ""))
 
-    except subprocess.CalledProcessError as e:
-        print(
-            f"ERROR: Failed to fetch comments for issue #{issue_number}: {e.stderr}",
-            file=sys.stderr,
-        )
-        return []
+            # DEBUG level - not printing
+            return comments
+        else:
+            stderr_text = result.stderr.decode('utf-8', errors='replace')
+            print(
+                f"ERROR: Failed to fetch comments for issue #{issue_number}: {stderr_text}",
+                file=sys.stderr,
+            )
+            return []
+
     except json.JSONDecodeError as e:
         print(
             f"ERROR: Failed to parse comments JSON for issue #{issue_number}: {e}",

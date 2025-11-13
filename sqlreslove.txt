@@ -1,0 +1,5 @@
+Update @app/server/core/sql_processor.py comment out validation.
+
+Validate your work with
+cd app/server && uv run ruff check .
+If there are errors at all, resolve them.
