@@ -10,11 +10,11 @@
     <div id="app">
       <div class="container">
         <h1>Natural Language SQL Interface</h1>
-        
+
         <!-- Query Input Section -->
         <section id="query-section" class="query-section">
-          <textarea 
-            id="query-input" 
+          <textarea
+            id="query-input"
             placeholder="Ask a question about your data... (e.g., 'Show me users who signed up last week')"
             rows="4"
             autofocus
@@ -23,6 +23,7 @@
             <button id="query-button" class="primary-button">Query</button>
             <div class="secondary-buttons">
               <button id="random-sql-button" class="secondary-button">Random SQL</button>
+              <button id="generate-query-button" class="secondary-button">Generate Query</button>
               <button id="upload-data-button" class="secondary-button">Upload Data</button>
             </div>
           </div>
@@ -53,7 +54,7 @@
               <h2>Upload Data</h2>
               <button class="close-modal">&times;</button>
             </div>
-            
+
             <div class="modal-body">
               <!-- Sample Data Section -->
               <div class="sample-data-section">
