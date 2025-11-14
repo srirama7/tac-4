@@ -178,7 +178,14 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
         os.makedirs(output_dir, exist_ok=True)
 
     # Build command - always use stream-json format and verbose
-    cmd = [CLAUDE_PATH, "-p", request.prompt]
+    # Use stdin for very large prompts to avoid Windows command line length limits
+    use_stdin = len(request.prompt) > 8000  # If prompt > 8KB, use stdin instead of -p
+
+    if use_stdin:
+        cmd = [CLAUDE_PATH, "--stdin"]
+    else:
+        cmd = [CLAUDE_PATH, "-p", request.prompt]
+
     cmd.extend(["--model", request.model])
     cmd.extend(["--output-format", "stream-json"])
     cmd.append("--verbose")
@@ -193,9 +200,16 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
     try:
         # Execute Claude Code and pipe output to file
         with open(request.output_file, "w", encoding='utf-8') as f:
-            result = subprocess.run(
-                cmd, stdout=f, stderr=subprocess.PIPE, text=True, encoding='utf-8', errors='replace', env=env
-            )
+            if use_stdin:
+                # Pass prompt via stdin to avoid command line length limits
+                result = subprocess.run(
+                    cmd, input=request.prompt, stdout=f, stderr=subprocess.PIPE, text=True, encoding='utf-8', errors='replace', env=env
+                )
+            else:
+                # Pass prompt via -p flag
+                result = subprocess.run(
+                    cmd, stdout=f, stderr=subprocess.PIPE, text=True, encoding='utf-8', errors='replace', env=env
+                )
 
         if result.returncode == 0:
             print(f"Output saved to: {request.output_file}")
@@ -264,6 +278,16 @@ def execute_template(request: AgentTemplateRequest) -> AgentPromptResponse:
             # Support two substitution formats:
             # 1. $ARGUMENTS - replaced with space-separated args
             # 2. $1, $2, $3, etc. - replaced with individual args
+
+            # Handle very large arguments by truncating long JSON in display
+            # but keeping full content for execution
+            display_args = []
+            for arg in request.args:
+                if len(arg) > 500:  # If arg is very long (likely JSON)
+                    # Truncate for display but keep full for substitution
+                    display_args.append(arg[:100] + f"... ({len(arg)} chars total)")
+                else:
+                    display_args.append(arg)
 
             if "$ARGUMENTS" in template_content:
                 # Format 1: Single $ARGUMENTS placeholder
