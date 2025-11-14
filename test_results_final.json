@@ -1,0 +1,10 @@
+{
+  "test_name": "Basic Query Execution",
+  "status": "failed",
+  "screenshots": [
+    "/c/Users/amogh/Downloads/tac5/tac-5/agents/d1f5b2a2/e2e_test_runner_0_0/img/basic_query/01_initial_state.png",
+    "/c/Users/amogh/Downloads/tac5/tac-5/agents/d1f5b2a2/e2e_test_runner_0_0/img/basic_query/02_query_input.png",
+    "/c/Users/amogh/Downloads/tac5/tac-5/agents/d1f5b2a2/e2e_test_runner_0_0/img/basic_query/error_screenshot.png"
+  ],
+  "error": "(Step 7 ❌) API request failed with HTTP 500: OPENAI_API_KEY environment variable not set. The backend server requires either OPENAI_API_KEY or ANTHROPIC_API_KEY to be configured in app/server/.env file to process natural language queries."
+}

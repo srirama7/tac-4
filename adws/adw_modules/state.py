@@ -65,8 +65,8 @@ class ADWState:
         )
 
         # Save as JSON
-        with open(state_path, "w") as f:
-            json.dump(state_data.model_dump(), f, indent=2)
+        with open(state_path, "w", encoding='utf-8', errors='replace') as f:
+            json.dump(state_data.model_dump(), f, indent=2, ensure_ascii=False)
 
         self.logger.info(f"Saved state to {state_path}")
         if workflow_step:
@@ -86,7 +86,7 @@ class ADWState:
             return None
 
         try:
-            with open(state_path, "r") as f:
+            with open(state_path, "r", encoding='utf-8', errors='replace') as f:
                 data = json.load(f)
 
             # Validate with ADWStateData

@@ -70,6 +70,16 @@ interface InsightsResponse {
   error?: string;
 }
 
+// Random Query Generator Types
+interface RandomQueryRequest {
+  target_tables?: string[];
+}
+
+interface RandomQueryResponse {
+  query: string;
+  error?: string;
+}
+
 // Health Check Types
 interface HealthCheckResponse {
   status: "ok" | "error";

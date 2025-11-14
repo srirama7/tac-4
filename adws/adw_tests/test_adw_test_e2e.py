@@ -80,7 +80,7 @@ def test_e2e_workflow(issue_number: str):
     assert failed_count >= 0, "Failed count should be non-negative"
     assert passed_count + failed_count == len(results), "Passed + failed should equal total tests"
     
-    print("\n✅ E2E workflow test completed successfully")
+    print("\n[SUCCESS] E2E workflow test completed successfully")
 
 
 def main():
@@ -97,14 +97,14 @@ def main():
     try:
         # Ensure we have required env vars
         if not os.getenv("ANTHROPIC_API_KEY"):
-            print("⚠️  Warning: ANTHROPIC_API_KEY not set, some functionality may fail")
+            print("[WARNING] ANTHROPIC_API_KEY not set, some functionality may fail")
         
         test_e2e_workflow(issue_number)
         
-        print("\n✅ All tests completed successfully!")
+        print("\n[SUCCESS] All tests completed successfully!")
         return 0
     except Exception as e:
-        print(f"\n❌ Test failed with error: {e}")
+        print(f"\n[ERROR] Test failed with error: {e}")
         import traceback
         traceback.print_exc()
         return 1

@@ -1,0 +1,10 @@
+{
+  "test_name": "Basic Query Execution",
+  "status": "failed",
+  "screenshots": [
+    "C:\\Users\\amogh\\Downloads\\tac5\\tac-5\\agents\\d1f5b2a2\\e2e_test_runner_0_0\\img\\basic_query\\01_initial_state.png",
+    "C:\\Users\\amogh\\Downloads\\tac5\\tac-5\\agents\\d1f5b2a2\\e2e_test_runner_0_0\\img\\basic_query\\02_query_input.png",
+    "C:\\Users\\amogh\\Downloads\\tac5\\tac-5\\agents\\d1f5b2a2\\e2e_test_runner_0_0\\img\\basic_query\\error_screenshot.png"
+  ],
+  "error": "page.waitForSelector: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('#sql-display .sql-query code') to be visible\u001b[22m\n"
+}

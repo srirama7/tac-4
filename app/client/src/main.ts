@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeQueryInput();
   initializeFileUpload();
   initializeModal();
+  initializeQueryGenerator();
   loadDatabaseSchema();
 });
 
@@ -394,7 +395,7 @@ function getTypeEmoji(type: string): string {
 async function loadSampleData(sampleType: string) {
   try {
     let filename: string;
-    
+
     if (sampleType === 'users') {
       filename = 'users.json';
     } else if (sampleType === 'products') {
@@ -404,19 +405,50 @@ async function loadSampleData(sampleType: string) {
     } else {
       throw new Error(`Unknown sample type: ${sampleType}`);
     }
-    
+
     const response = await fetch(`/sample-data/${filename}`);
-    
+
     if (!response.ok) {
       throw new Error('Failed to load sample data');
     }
-    
+
     const blob = await response.blob();
     const file = new File([blob], filename, { type: blob.type });
-    
+
     // Upload the file
     await handleFileUpload(file);
   } catch (error) {
     displayError(error instanceof Error ? error.message : 'Failed to load sample data');
   }
+}
+
+// Query Generator Functionality
+function initializeQueryGenerator() {
+  const generateQueryButton = document.getElementById('generate-query-button') as HTMLButtonElement;
+  const queryInput = document.getElementById('query-input') as HTMLTextAreaElement;
+
+  generateQueryButton.addEventListener('click', async () => {
+    // Disable button and show loading state
+    generateQueryButton.disabled = true;
+    const originalText = generateQueryButton.textContent;
+    generateQueryButton.innerHTML = '<span class="loading"></span> Generating...';
+
+    try {
+      const response = await api.generateRandomQuery({});
+
+      if (response.error) {
+        displayError(response.error);
+      } else {
+        // Overwrite the query input field with the generated query
+        queryInput.value = response.query;
+        queryInput.focus();
+      }
+    } catch (error) {
+      displayError(error instanceof Error ? error.message : 'Failed to generate query');
+    } finally {
+      // Restore button state
+      generateQueryButton.disabled = false;
+      generateQueryButton.textContent = originalText || 'Generate Query';
+    }
+  });
 }

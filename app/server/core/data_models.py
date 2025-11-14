@@ -70,6 +70,14 @@ class InsightsResponse(BaseModel):
     generated_at: datetime
     error: Optional[str] = None
 
+# Random Query Generator Models
+class RandomQueryRequest(BaseModel):
+    target_tables: Optional[List[str]] = None  # Optional: target specific tables
+
+class RandomQueryResponse(BaseModel):
+    query: str = Field(..., description="Generated natural language query")
+    error: Optional[str] = None
+
 # Health Check Models
 class HealthCheckRequest(BaseModel):
     pass

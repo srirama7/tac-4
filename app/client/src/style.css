@@ -82,6 +82,12 @@ h2 {
   gap: 1rem;
   margin-top: 1rem;
   align-items: center;
+  justify-content: space-between;
+}
+
+.button-group-right {
+  display: flex;
+  gap: 1rem;
 }
 
 /* Buttons */
