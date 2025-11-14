@@ -232,7 +232,7 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
                     output=raw_output, success=True, session_id=None
                 )
         else:
-            error_msg = f"Claude Code error: {result.stderr}"
+            error_msg = f"Claude Code error (return code {result.returncode}): {result.stderr[:500] if result.stderr else 'No stderr output'}"
             print(error_msg, file=sys.stderr)
             return AgentPromptResponse(output=error_msg, success=False, session_id=None)
 
