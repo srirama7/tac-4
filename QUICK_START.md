@@ -1,107 +1,125 @@
-# Quick Start - ADW with Claude Code CLI Only
+# Quick Start: Claude Code ADW + Gemini SQL
 
-## Prerequisites
-You only need:
-1. ✅ Claude Code CLI installed & authenticated
-   ```bash
-   claude --version
-   ```
-2. ✅ GitHub CLI installed & authenticated
-   ```bash
-   gh auth login
-   ```
-3. ✅ Git installed
-4. ✅ Python 3.11+ with uv installed
+## 🎯 Setup in 3 Steps
 
-## NO ANTHROPIC_API_KEY NEEDED! 🎉
-
-Claude Code CLI handles authentication automatically.
-
-## Setup
-
+### Step 1: Install Claude Code CLI
 ```bash
-# 1. Navigate to project
+curl https://claude.com/install.sh | bash
+source ~/.bashrc
+claude --version  # Verify installation
+```
+
+### Step 2: Configure Environment
+```bash
+# In .env file:
+GEMINI_API_KEY=your-gemini-key-here        # For SQL operations only
+GITHUB_PAT=your-github-token               # Optional
+```
+
+### Step 3: Update Dependencies
+```bash
 cd adws
-
-# 2. Run the workflow (that's it!)
-uv run adw_plan_build.py 13
+uv sync  # No more google-generativeai needed!
 ```
 
-Replace `13` with your GitHub issue number.
+---
 
-## What Happens
+## ✨ What Works Now
 
-1. **Plan Phase**: AI analyzes the issue and creates an implementation plan
-2. **Build Phase**: AI implements the solution based on the plan
-3. **Git Operations**: Creates branches, commits, and can create PRs
-
-## Optional Configuration
-
-Create a `.env` file (copy from `.env.sample`) for optional settings:
-
-```env
-# GitHub - use different account than 'gh auth login'
-GITHUB_PAT=ghp_xxxxxxxxxxxxx
-
-# Only if 'claude' command is not in PATH
-CLAUDE_CODE_PATH=/usr/local/bin/claude
-
-# These are rarely needed
-E2B_API_KEY=e2b_xxxxx
-CLOUDFLARED_TUNNEL_TOKEN=xxxxx
-```
-
-## Verify Setup
-
+### ADW (Planning & Implementation)
 ```bash
-# Check Claude Code is working
-claude --version
-
-# Check GitHub is authenticated
-gh auth status
-
-# Test the workflow
 cd adws
-uv run adw_plan_build.py 13
+uv run adw_plan_build.py 123           # Plan + Build issue #123
+uv run adw_plan_build_test.py 123      # Plan + Build + Test
+uv run adw_triggers/trigger_cron.py    # Auto-monitor GitHub issues
 ```
 
-## Troubleshooting
-
-### Claude Code CLI not found
+### SQL Operations (Still Uses Gemini)
 ```bash
-which claude  # Find where it's installed
-# Add to .env file:
-CLAUDE_CODE_PATH=/path/to/claude
+curl -X POST http://localhost:8000/api/random-sql
+curl -X POST http://localhost:8000/api/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "list all customers from NY"}'
 ```
 
-### GitHub authentication issues
+---
+
+## 📊 Architecture Summary
+
+```
+┌─────────────────────┐
+│   GitHub Issues     │
+└──────────┬──────────┘
+           │
+      ┌────▼────┐
+      │   ADW   │────────────► Claude Code CLI ✅ (Local)
+      └────┬────┘
+           │
+      ┌────▼──────────┐
+      │   SQL Server  │
+      │   Operations  │
+      └────┬──────────┘
+           │
+      ┌────▼──────────┐
+      │  Gemini API   │✅ (SQL descriptions)
+      └───────────────┘
+```
+
+---
+
+## 🔑 Key Changes
+
+| Component | Before | Now |
+|-----------|--------|-----|
+| ADW Engine | Gemini API ☁️ | Claude Code CLI 💻 |
+| Execution | Remote (cloud) | Local |
+| SQL Engine | Gemini | Gemini ✅ |
+| Dependencies | 3 | 2 |
+| Setup Time | 5 min | 2 min |
+
+---
+
+## 🆘 Common Issues
+
+**"claude: command not found"**
+→ Install Claude Code CLI: `curl https://claude.com/install.sh | bash`
+
+**"GEMINI_API_KEY not set"**
+→ Only needed for SQL ops. ADW doesn't need it!
+
+**"ImportError: No module named 'google.generativeai'"**
+→ Run `cd adws && uv sync` - dependency removed from ADW
+
+---
+
+## 📚 Full Documentation
+
+- `CLAUDE_CODE_MIGRATION.md` - Complete migration guide
+- `MIGRATION_SUMMARY.md` - All changes documented
+- `.claude/commands/` - Available slash commands
+
+---
+
+## 🚀 Next: Deploy Locally
+
 ```bash
-gh auth login
-gh auth status
+# Terminal 1: Backend
+cd app/server
+uv sync
+uv run python server.py
+
+# Terminal 2: Frontend
+cd app/client
+bun install
+bun run dev
+
+# Terminal 3: Monitor ADW (optional)
+cd adws
+uv run adw_triggers/trigger_cron.py
 ```
 
-### Python/uv issues
-```bash
-# Install uv
-curl -LsSf https://astral.sh/uv/install.sh | sh
+**Access:** http://localhost:5173
 
-# Install Python via uv
-uv python install
-```
+---
 
-## Logs & Output
-
-Workflow logs are stored in:
-```
-agents/{adw_id}/adw_plan/execution.log
-agents/{adw_id}/adw_build/execution.log
-```
-
-Implementation plans are saved in:
-```
-specs/issue-{issue_number}-adw-{adw_id}-*.md
-```
-
-## Need Help?
-
-See `CLAUDE_CODE_ONLY_SETUP.md` for detailed technical information about how this works.
+**Ready to go!** Your TAC-5 project now uses Claude Code CLI for ADW and Gemini for SQL. 🎉

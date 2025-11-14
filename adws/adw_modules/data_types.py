@@ -115,12 +115,12 @@ class GitHubIssue(BaseModel):
 
 
 class AgentPromptRequest(BaseModel):
-    """Claude Code agent prompt configuration."""
+    """Gemini AI agent prompt configuration."""
 
     prompt: str
     adw_id: str
     agent_name: str = "ops"
-    model: Literal["sonnet", "opus"] = "sonnet"
+    model: str = "gemini-2.5-flash"  # Options: gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash
     dangerously_skip_permissions: bool = False
     output_file: str
 
@@ -134,13 +134,13 @@ class AgentPromptResponse(BaseModel):
 
 
 class AgentTemplateRequest(BaseModel):
-    """Claude Code agent template execution request."""
+    """Gemini AI agent template execution request."""
 
     agent_name: str
     slash_command: SlashCommand
     args: List[str]
     adw_id: str
-    model: Literal["sonnet", "opus"] = "sonnet"
+    model: str = "gemini-2.5-flash"  # Options: gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash
 
 
 class ClaudeCodeResultMessage(BaseModel):

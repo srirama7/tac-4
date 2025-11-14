@@ -75,5 +75,16 @@ export const api = {
   // Health check
   async healthCheck(): Promise<HealthCheckResponse> {
     return apiRequest<HealthCheckResponse>('/health');
+  },
+
+  // Get random SQL description
+  async getRandomSQL(): Promise<RandomSQLResponse> {
+    return apiRequest<RandomSQLResponse>('/random-sql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ llm_provider: 'gemini' })
+    });
   }
 };

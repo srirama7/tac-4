@@ -16,7 +16,7 @@ from adw_modules.data_types import (
     AgentPromptResponse,
     IssueClassSlashCommand,
 )
-from adw_modules.agent import execute_template
+from adw_modules.claude_code_agent import execute_template
 from adw_modules.github import get_repo_url, extract_repo_path
 from adw_modules.state import ADWState
 from adw_modules.utils import parse_json
@@ -50,7 +50,7 @@ def extract_adw_info(text: str, temp_adw_id: str) -> Tuple[Optional[str], Option
         slash_command="/classify_adw",
         args=[text],
         adw_id=temp_adw_id,
-        model="sonnet",
+        model="claude-code",  # Claude Code CLI will use configured Claude model
     )
     
     try:
@@ -100,7 +100,7 @@ def classify_issue(
         slash_command="/classify_issue",
         args=[minimal_issue_json],
         adw_id=adw_id,
-        model="sonnet",
+        model="claude-code",  # Claude Code CLI will use configured Claude model
     )
     
     logger.debug(f"Classifying issue: {issue.title}")
@@ -139,12 +139,21 @@ def build_plan(
     issue: GitHubIssue, command: str, adw_id: str, logger: logging.Logger
 ) -> AgentPromptResponse:
     """Build implementation plan for the issue using the specified command."""
+    # Optimize issue payload by removing comments entirely for planning phase
+    # Comments are not needed for plan generation and significantly reduce payload size
+    # This prevents timeout issues with large comment histories
+    from copy import deepcopy
+
+    # Create a deep copy and remove all comments
+    optimized_issue = deepcopy(issue)
+    optimized_issue.comments = []  # Exclude comments entirely for faster processing
+
     issue_plan_template_request = AgentTemplateRequest(
         agent_name=AGENT_PLANNER,
         slash_command=command,
-        args=[str(issue.number), adw_id, issue.model_dump_json(by_alias=True)],
+        args=[str(issue.number), adw_id, optimized_issue.model_dump_json(by_alias=True)],
         adw_id=adw_id,
-        model="sonnet",
+        model="claude-code",  # Claude Code CLI will use configured Claude model
     )
 
     logger.debug(
@@ -170,7 +179,7 @@ def get_plan_file(
         slash_command="/find_plan_file",
         args=[issue_number, adw_id, plan_output],
         adw_id=adw_id,
-        model="sonnet",
+        model="claude-code",  # Claude Code CLI will use configured Claude model
     )
 
     response = execute_template(request)
@@ -200,7 +209,7 @@ def implement_plan(
         slash_command="/implement",
         args=[plan_file],
         adw_id=adw_id,
-        model="sonnet",
+        model="claude-code",  # Claude Code CLI will use configured Claude model
     )
 
     logger.debug(
@@ -232,7 +241,7 @@ def generate_branch_name(
         slash_command="/generate_branch_name",
         args=[issue_type, adw_id, issue.model_dump_json(by_alias=True)],
         adw_id=adw_id,
-        model="sonnet",
+        model="claude-code",  # Claude Code CLI will use configured Claude model
     )
 
     response = execute_template(request)
@@ -240,7 +249,61 @@ def generate_branch_name(
     if not response.success:
         return None, response.output
 
-    branch_name = response.output.strip()
+    # Extract branch name from response (may contain markdown or explanation text)
+    output = response.output.strip()
+
+    branch_name = None
+
+    # Try to extract from markdown bold markers (**branch-name**) at the end
+    # Look for the pattern with "branch" or "feature" followed by numbers
+    bold_matches = re.findall(r'\*\*([^*]+)\*\*', output)
+    if bold_matches:
+        # Look for matches that look like branch names (contain hyphens and numbers)
+        for match in reversed(bold_matches):
+            if '-' in match and any(c.isdigit() for c in match):
+                branch_name = match.strip()
+                break
+        # If no match found, take the last one that isn't a key-value like "issue_class"
+        if not branch_name:
+            for match in reversed(bold_matches):
+                if ':' not in match:  # Exclude key-value pairs
+                    branch_name = match.strip()
+                    break
+
+    # If not found, try to extract a git branch pattern (no spaces, hyphens allowed)
+    if not branch_name:
+        branch_match = re.search(r'^([a-z0-9\-]+)$', output, re.MULTILINE)
+        if branch_match:
+            branch_name = branch_match.group(1).strip()
+
+    # If still not found, look for lines that look like branch names
+    if not branch_name:
+        lines = [line.strip() for line in output.split('\n') if line.strip()]
+        # Look for lines containing hyphens and numbers (typical branch name pattern)
+        for line in reversed(lines):
+            if '-' in line and any(c.isdigit() for c in line) and not any(c in line for c in [':', '*', '`']):
+                branch_name = line
+                break
+        # Last resort: take the last line
+        if not branch_name:
+            branch_name = lines[-1] if lines else None
+
+    if not branch_name:
+        return None, f"Could not extract branch name from response: {output}"
+
+    # Sanitize branch name to make it git-compatible
+    # Convert to lowercase, replace invalid characters with hyphens
+    branch_name = branch_name.lower()
+    # Replace spaces, colons, and other invalid characters with hyphens
+    branch_name = re.sub(r'[^a-z0-9\-_/]', '-', branch_name)
+    # Replace multiple consecutive hyphens with a single hyphen
+    branch_name = re.sub(r'-+', '-', branch_name)
+    # Remove leading/trailing hyphens
+    branch_name = branch_name.strip('-').strip('_').strip('/')
+
+    if not branch_name:
+        return None, f"Branch name was empty after sanitization: {output}"
+
     logger.info(f"Generated branch name: {branch_name}")
     return branch_name, None
 
@@ -265,7 +328,7 @@ def create_commit(
         slash_command="/commit",
         args=[agent_name, issue_type, issue.model_dump_json(by_alias=True)],
         adw_id=adw_id,
-        model="sonnet",
+        model="claude-code",  # Claude Code CLI will use configured Claude model
     )
 
     response = execute_template(request)
@@ -312,7 +375,7 @@ def create_pull_request(
         slash_command="/pull_request",
         args=[branch_name, issue_json, plan_file, adw_id],
         adw_id=adw_id,
-        model="sonnet",
+        model="claude-code",  # Claude Code CLI will use configured Claude model
     )
 
     response = execute_template(request)

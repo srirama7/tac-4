@@ -91,3 +91,14 @@ class ExportResponse(BaseModel):
     success: bool
     filename: str
     error: Optional[str] = None
+
+# Random SQL Description Models
+class RandomSQLRequest(BaseModel):
+    """Request model for random SQL description generation"""
+    llm_provider: str = "gemini"
+
+class RandomSQLResponse(BaseModel):
+    """Response model for random SQL description generation"""
+    description: str = Field(..., description="Generated random SQL description")
+    tables_analyzed: List[str] = Field(..., description="List of tables analyzed for generation")
+    error: Optional[str] = None

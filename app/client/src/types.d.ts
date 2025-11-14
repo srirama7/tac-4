@@ -78,3 +78,14 @@ interface HealthCheckResponse {
   version: string;
   uptime_seconds: number;
 }
+
+// Random SQL Types
+interface RandomSQLRequest {
+  llm_provider: string;
+}
+
+interface RandomSQLResponse {
+  description: string;
+  tables_analyzed: string[];
+  error?: string;
+}

@@ -6,6 +6,7 @@ import { api } from './api/client'
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
   initializeQueryInput();
+  initializeRandomSQL();
   initializeFileUpload();
   initializeModal();
   loadDatabaseSchema();
@@ -45,6 +46,46 @@ function initializeQueryInput() {
   queryInput.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       queryButton.click();
+    }
+  });
+}
+
+// Random SQL Functionality
+function initializeRandomSQL() {
+  const randomSQLButton = document.getElementById('random-sql-button') as HTMLButtonElement;
+  const queryInput = document.getElementById('query-input') as HTMLTextAreaElement;
+
+  randomSQLButton.addEventListener('click', async () => {
+    // Check if tables are loaded
+    const schema = await api.getSchema();
+    if (!schema.tables || schema.tables.length === 0) {
+      displayError('Please upload data first before generating random SQL');
+      return;
+    }
+
+    // Disable button and show loading state
+    randomSQLButton.disabled = true;
+    const originalText = randomSQLButton.textContent;
+    randomSQLButton.textContent = 'Generating...';
+
+    try {
+      // Call API to generate random SQL description
+      const response = await api.getRandomSQL();
+
+      if (response.error) {
+        displayError(response.error);
+      } else {
+        // Populate query input field with generated description
+        queryInput.value = response.description;
+        // Focus on the input field
+        queryInput.focus();
+      }
+    } catch (error) {
+      displayError(error instanceof Error ? error.message : 'Failed to generate random SQL');
+    } finally {
+      // Re-enable button and restore text
+      randomSQLButton.disabled = false;
+      randomSQLButton.textContent = originalText;
     }
   });
 }

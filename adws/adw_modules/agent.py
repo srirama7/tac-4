@@ -1,12 +1,18 @@
-"""Claude Code agent module for executing prompts programmatically."""
+"""Gemini AI agent module for executing prompts programmatically."""
 
-import subprocess
 import sys
 import os
 import json
 import re
 from typing import Optional, List, Dict, Any, Tuple
 from dotenv import load_dotenv
+
+try:
+    import google.generativeai as genai
+except ImportError:
+    print("Error: google-generativeai not installed. Install with: pip install google-generativeai")
+    sys.exit(1)
+
 from .data_types import (
     AgentPromptRequest,
     AgentPromptResponse,
@@ -17,23 +23,26 @@ from .data_types import (
 # Load environment variables
 load_dotenv()
 
-# Get Claude Code CLI path from environment
-CLAUDE_PATH = os.getenv("CLAUDE_CODE_PATH", "claude")
+# Get Gemini API key from environment
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    print("Error: GEMINI_API_KEY environment variable not set")
+    sys.exit(1)
+
+# Configure Gemini API
+genai.configure(api_key=GEMINI_API_KEY)
 
 
-def check_claude_installed() -> Optional[str]:
-    """Check if Claude Code CLI is installed. Return error message if not."""
+def check_gemini_available() -> Optional[str]:
+    """Check if Gemini API is configured. Return error message if not."""
     try:
-        result = subprocess.run(
-            [CLAUDE_PATH, "--version"], capture_output=True, text=True
-        )
-        if result.returncode != 0:
-            return (
-                f"Error: Claude Code CLI is not installed. Expected at: {CLAUDE_PATH}"
-            )
-    except FileNotFoundError:
-        return f"Error: Claude Code CLI is not installed. Expected at: {CLAUDE_PATH}"
-    return None
+        if not GEMINI_API_KEY:
+            return "Error: GEMINI_API_KEY environment variable not set"
+        # Try to list models to verify API key works
+        models = genai.list_models()
+        return None
+    except Exception as e:
+        return f"Error: Failed to connect to Gemini API: {str(e)}"
 
 
 def parse_jsonl_output(
@@ -85,30 +94,6 @@ def convert_jsonl_to_json(jsonl_file: str) -> str:
     return json_file
 
 
-def get_claude_env() -> Dict[str, str]:
-    """Get environment variables for Claude Code execution.
-
-    Claude Code handles its own authentication automatically when invoked via CLI,
-    so we inherit from the parent environment instead of creating a restricted one.
-    This allows Claude Code to access its stored credentials.
-
-    We only add/override variables that need custom values.
-    """
-    # Start with parent environment
-    env = os.environ.copy()
-
-    # Override specific variables if needed
-    env["CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR"] = os.getenv(
-        "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR", "true"
-    )
-
-    # Only add GitHub token if it exists
-    github_pat = os.getenv("GITHUB_PAT")
-    if github_pat:
-        env["GITHUB_PAT"] = github_pat
-        env["GH_TOKEN"] = github_pat  # Claude Code uses GH_TOKEN
-
-    return env
 
 
 def save_prompt(prompt: str, adw_id: str, agent_name: str = "ops") -> None:
@@ -136,11 +121,11 @@ def save_prompt(prompt: str, adw_id: str, agent_name: str = "ops") -> None:
     print(f"Saved prompt to: {prompt_file}")
 
 
-def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
-    """Execute Claude Code with the given prompt configuration."""
+def prompt_gemini(request: AgentPromptRequest) -> AgentPromptResponse:
+    """Execute Gemini API with the given prompt configuration."""
 
-    # Check if Claude Code CLI is installed
-    error_msg = check_claude_installed()
+    # Check if Gemini API is configured
+    error_msg = check_gemini_available()
     if error_msg:
         return AgentPromptResponse(output=error_msg, success=False, session_id=None)
 
@@ -152,79 +137,62 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
 
-    # Build command - always use stream-json format and verbose
-    cmd = [CLAUDE_PATH, "-p", request.prompt]
-    cmd.extend(["--model", request.model])
-    cmd.extend(["--output-format", "stream-json"])
-    cmd.append("--verbose")
-
-    # Add dangerous skip permissions flag if enabled
-    if request.dangerously_skip_permissions:
-        cmd.append("--dangerously-skip-permissions")
-
-    # Set up environment with only required variables
-    env = get_claude_env()
-
     try:
-        # Execute Claude Code and pipe output to file
-        with open(request.output_file, "w") as f:
-            result = subprocess.run(
-                cmd, stdout=f, stderr=subprocess.PIPE, text=True, env=env
+        # Initialize Gemini model
+        model = genai.GenerativeModel(request.model)
+
+        # Call Gemini API
+        response = model.generate_content(
+            request.prompt,
+            generation_config=genai.types.GenerationConfig(
+                temperature=0.7,
+                max_output_tokens=4096,
             )
+        )
 
-        if result.returncode == 0:
-            print(f"Output saved to: {request.output_file}")
+        # Extract response text
+        response_text = response.text if response else ""
 
-            # Parse the JSONL file
-            messages, result_message = parse_jsonl_output(request.output_file)
+        # Create response object
+        result = {
+            "type": "result",
+            "output": response_text,
+            "model": request.model,
+            "success": True
+        }
 
-            # Convert JSONL to JSON array file
-            json_file = convert_jsonl_to_json(request.output_file)
+        # Write output in JSONL format for consistency
+        with open(request.output_file, "w", encoding="utf-8") as f:
+            f.write(json.dumps(result) + "\n")
 
-            if result_message:
-                # Extract session_id from result message
-                session_id = result_message.get("session_id")
+        print(f"Output saved to: {request.output_file}")
 
-                # Check if there was an error in the result
-                is_error = result_message.get("is_error", False)
-                subtype = result_message.get("subtype", "")
-                
-                # Handle error_during_execution case where there's no result field
-                if subtype == "error_during_execution":
-                    error_msg = "Error during execution: Agent encountered an error and did not return a result"
-                    return AgentPromptResponse(
-                        output=error_msg, success=False, session_id=session_id
-                    )
-                
-                result_text = result_message.get("result", "")
+        return AgentPromptResponse(
+            output=response_text,
+            success=True,
+            session_id=None
+        )
 
-                return AgentPromptResponse(
-                    output=result_text, success=not is_error, session_id=session_id
-                )
-            else:
-                # No result message found, return raw output
-                with open(request.output_file, "r") as f:
-                    raw_output = f.read()
-                return AgentPromptResponse(
-                    output=raw_output, success=True, session_id=None
-                )
-        else:
-            error_msg = f"Claude Code error: {result.stderr}"
-            print(error_msg, file=sys.stderr)
-            return AgentPromptResponse(output=error_msg, success=False, session_id=None)
-
-    except subprocess.TimeoutExpired:
-        error_msg = "Error: Claude Code command timed out after 5 minutes"
-        print(error_msg, file=sys.stderr)
-        return AgentPromptResponse(output=error_msg, success=False, session_id=None)
     except Exception as e:
-        error_msg = f"Error executing Claude Code: {e}"
+        error_msg = f"Error executing Gemini API: {str(e)}"
         print(error_msg, file=sys.stderr)
+
+        # Write error to output file
+        error_result = {
+            "type": "result",
+            "output": error_msg,
+            "model": request.model,
+            "success": False
+        }
+
+        with open(request.output_file, "w", encoding="utf-8") as f:
+            f.write(json.dumps(error_result) + "\n")
+
         return AgentPromptResponse(output=error_msg, success=False, session_id=None)
 
 
 def execute_template(request: AgentTemplateRequest) -> AgentPromptResponse:
-    """Execute a Claude Code template with slash command and arguments."""
+    """Execute a Gemini template with slash command and arguments."""
     # Construct prompt from slash command and args
     prompt = f"{request.slash_command} {' '.join(request.args)}"
 
@@ -249,5 +217,5 @@ def execute_template(request: AgentTemplateRequest) -> AgentPromptResponse:
         output_file=output_file,
     )
 
-    # Execute and return response (prompt_claude_code now handles all parsing)
-    return prompt_claude_code(prompt_request)
+    # Execute and return response (prompt_gemini now handles all parsing)
+    return prompt_gemini(prompt_request)

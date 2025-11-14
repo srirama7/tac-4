@@ -1,15 +1,19 @@
 # AI Developer Workflow (ADW) System
 
-ADW automates software development by integrating GitHub issues with Claude Code CLI to classify issues, generate plans, implement solutions, and create pull requests.
+ADW automates software development by integrating GitHub issues with Google's Gemini API to classify issues, generate plans, implement solutions, and create pull requests.
 
 ## Quick Start
 
 ### 1. Set Environment Variables
 
 ```bash
-export GITHUB_REPO_URL="https://github.com/owner/repository"
-export ANTHROPIC_API_KEY="sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-export CLAUDE_CODE_PATH="/path/to/claude"  # Optional, defaults to "claude"
+# Get Gemini API Key from https://aistudio.google.com/app/apikey
+export GEMINI_API_KEY="your-gemini-api-key-here"
+
+# Optional: Set specific Gemini model (defaults to gemini-2.5-flash)
+export GEMINI_MODEL="gemini-2.5-flash"  # Options: gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash
+
+# Optional: GitHub token for using different account
 export GITHUB_PAT="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # Optional, only if using different account than 'gh auth login'
 ```
 
@@ -21,15 +25,20 @@ brew install gh              # macOS
 # or: sudo apt install gh    # Ubuntu/Debian
 # or: winget install --id GitHub.cli  # Windows
 
-# Claude Code CLI
-# Follow instructions at https://docs.anthropic.com/en/docs/claude-code
-
 # Python dependency manager (uv)
 curl -LsSf https://astral.sh/uv/install.sh | sh  # macOS/Linux
 # or: powershell -c "irm https://astral.sh/uv/install.ps1 | iex"  # Windows
 
+# Install Gemini Python SDK
+pip install google-generativeai
+# or with uv:
+uv pip install google-generativeai
+
 # Authenticate GitHub
 gh auth login
+
+# Get Gemini API Key
+# Visit https://aistudio.google.com/app/apikey to get your free API key
 ```
 
 ### 3. Run ADW

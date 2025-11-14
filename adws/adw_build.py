@@ -38,14 +38,30 @@ from adw_modules.data_types import GitHubIssue
 
 
 def check_env_vars(logger: Optional[logging.Logger] = None) -> None:
-    """Check that all required environment variables are set.
+    """Check that Claude Code CLI is available.
 
-    Note: ANTHROPIC_API_KEY is not required when using Claude Code CLI,
-    as Claude Code handles authentication automatically.
+    Note: ADW now uses Claude Code CLI (no GEMINI_API_KEY required).
+    Gemini API is only used for SQL operations in the server backend.
     """
-    # No required vars when using Claude Code CLI
-    # Claude Code handles authentication automatically
-    pass
+    # Check if Claude Code CLI is available
+    result = subprocess.run(
+        ["claude", "--version"],
+        capture_output=True,
+        text=True
+    )
+
+    if result.returncode != 0:
+        error_msg = "Error: Claude Code CLI not found. Please install it from https://docs.claude.com/en/docs/claude-code/setup"
+        if logger:
+            logger.error(error_msg)
+        else:
+            print(error_msg, file=sys.stderr)
+        sys.exit(1)
+
+    if logger:
+        logger.info(f"Claude Code CLI available: {result.stdout.strip()}")
+    else:
+        print(f"Claude Code CLI available: {result.stdout.strip()}")
 
 
 def main():

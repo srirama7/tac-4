@@ -82,6 +82,13 @@ h2 {
   gap: 1rem;
   margin-top: 1rem;
   align-items: center;
+  justify-content: space-between;
+}
+
+.secondary-buttons {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
 }
 
 /* Buttons */
@@ -119,9 +126,15 @@ h2 {
   border: 2px solid var(--primary-color);
 }
 
-.secondary-button:hover {
+.secondary-button:hover:not(:disabled) {
   background: var(--primary-color);
   color: white;
+}
+
+.secondary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .toggle-button {

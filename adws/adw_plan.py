@@ -43,19 +43,37 @@ from adw_modules.workflow_ops import (
     ensure_adw_id,
     AGENT_PLANNER,
 )
-from adw_modules.utils import setup_logger
+from adw_modules.utils import setup_logger, remove_emoji
 from adw_modules.data_types import GitHubIssue, IssueClassSlashCommand
 
 
 def check_env_vars(logger: Optional[logging.Logger] = None) -> None:
-    """Check that all required environment variables are set.
+    """Check that Claude Code CLI is available.
 
-    Note: ANTHROPIC_API_KEY is not required when using Claude Code CLI,
-    as Claude Code handles authentication automatically.
+    Note: ADW uses Claude Code CLI (no API keys required).
+    Claude Code authentication is managed by the CLI itself.
     """
-    # No required vars when using Claude Code CLI
-    # Claude Code handles authentication automatically
-    pass
+    import subprocess
+
+    # Check if Claude Code CLI is available
+    result = subprocess.run(
+        ["claude", "--version"],
+        capture_output=True,
+        text=True
+    )
+
+    if result.returncode != 0:
+        error_msg = "Error: Claude Code CLI not found. Please install it from https://docs.claude.com/en/docs/claude-code/setup"
+        if logger:
+            logger.error(error_msg)
+        else:
+            print(error_msg, file=sys.stderr)
+        sys.exit(1)
+
+    if logger:
+        logger.info(f"Claude Code CLI available: {result.stdout.strip()}")
+    else:
+        print(f"Claude Code CLI available: {result.stdout.strip()}")
 
 
 def main():
@@ -100,7 +118,9 @@ def main():
     # Fetch issue details
     issue: GitHubIssue = fetch_issue(issue_number, repo_path)
 
-    logger.debug(f"Fetched issue: {issue.model_dump_json(indent=2, by_alias=True)}")
+    # Log issue details, removing emoji for Windows console compatibility
+    issue_json = issue.model_dump_json(indent=2, by_alias=True)
+    logger.debug(f"Fetched issue: {remove_emoji(issue_json)}")
     make_issue_comment(
         issue_number, format_issue_message(adw_id, "ops", "✅ Starting planning phase")
     )

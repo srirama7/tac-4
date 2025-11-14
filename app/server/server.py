@@ -21,10 +21,12 @@ from core.data_models import (
     TableSchema,
     ColumnInfo,
     ExportRequest,
-    ExportResponse
+    ExportResponse,
+    RandomSQLRequest,
+    RandomSQLResponse
 )
 from core.file_processor import convert_csv_to_sqlite, convert_json_to_sqlite, convert_jsonl_to_sqlite
-from core.llm_processor import generate_sql
+from core.llm_processor import generate_sql, generate_random_sql_description
 from core.sql_processor import execute_sql_safely, get_database_schema
 from core.insights import generate_insights
 from core.sql_security import (
@@ -298,6 +300,43 @@ async def health_check() -> HealthCheckResponse:
             database_connected=False,
             tables_count=0,
             uptime_seconds=0
+        )
+
+@app.post("/api/random-sql", response_model=RandomSQLResponse)
+async def generate_random_sql(request: RandomSQLRequest = None) -> RandomSQLResponse:
+    """Generate a random SQL description based on the current database schema"""
+    try:
+        # Get database schema
+        schema_info = get_database_schema()
+
+        # Check if any tables exist
+        if not schema_info.get('tables') or len(schema_info['tables']) == 0:
+            return RandomSQLResponse(
+                description="",
+                tables_analyzed=[],
+                error="No tables found in database. Please upload data first."
+            )
+
+        # Get list of analyzed tables
+        tables_analyzed = list(schema_info.get('tables', {}).keys())
+
+        # Generate random SQL description
+        description = generate_random_sql_description(schema_info, llm_provider="gemini")
+
+        response = RandomSQLResponse(
+            description=description,
+            tables_analyzed=tables_analyzed
+        )
+        logger.info(f"[SUCCESS] Random SQL generated: tables={tables_analyzed}, description_length={len(description)}")
+        return response
+
+    except Exception as e:
+        logger.error(f"[ERROR] Random SQL generation failed: {str(e)}")
+        logger.error(f"[ERROR] Full traceback:\n{traceback.format_exc()}")
+        return RandomSQLResponse(
+            description="",
+            tables_analyzed=[],
+            error=str(e)
         )
 
 @app.delete("/api/table/{table_name}")

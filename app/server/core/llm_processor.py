@@ -3,6 +3,7 @@ from typing import Dict, Any
 from openai import OpenAI
 from anthropic import Anthropic
 from core.data_models import QueryRequest
+from core.gemini_processor import generate_with_gemini
 
 def generate_sql_with_openai(query_text: str, schema_info: Dict[str, Any]) -> str:
     """
@@ -148,15 +149,68 @@ def generate_sql(request: QueryRequest, schema_info: Dict[str, Any]) -> str:
     """
     openai_key = os.environ.get("OPENAI_API_KEY")
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
-    
+
     # Check API key availability first (OpenAI priority)
     if openai_key:
         return generate_sql_with_openai(request.query, schema_info)
     elif anthropic_key:
         return generate_sql_with_anthropic(request.query, schema_info)
-    
+
     # Fall back to request preference if both keys available or neither available
     if request.llm_provider == "openai":
         return generate_sql_with_openai(request.query, schema_info)
     else:
         return generate_sql_with_anthropic(request.query, schema_info)
+
+def generate_random_sql_description(schema_info: Dict[str, Any], llm_provider: str = "gemini") -> str:
+    """
+    Generate a random, contextually relevant SQL description based on the database schema.
+
+    Args:
+        schema_info: Database schema information with tables and columns
+        llm_provider: LLM provider to use (default: "gemini")
+
+    Returns:
+        A random SQL description (1-3 sentences)
+
+    Raises:
+        Exception: If generation fails
+    """
+    # Format schema for prompt
+    schema_description = format_schema_for_prompt(schema_info)
+
+    # Create a prompt that encourages random, practical SQL descriptions
+    prompt = f"""Given the following database schema:
+
+{schema_description}
+
+Generate ONE random, interesting, and practical natural language SQL query description based on this schema. The description should:
+- Be 1-3 sentences maximum
+- Describe a real-world scenario that users would actually want to explore
+- Reference actual column names and table structures from the schema
+- Suggest different types of queries (filtering, aggregation, sorting, time-based, etc.)
+- Be specific to the actual data structure (not generic)
+
+Examples of good descriptions:
+- "Show me all users who signed up in the last 30 days with their email addresses"
+- "What are the top 10 products by total inventory value?"
+- "List all orders from the past week grouped by customer, ordered by total amount"
+
+Random SQL Description:"""
+
+    try:
+        # Use Gemini API for generation
+        description = generate_with_gemini(
+            prompt,
+            temperature=0.8,  # Higher temperature for more creative/random descriptions
+            max_tokens=256
+        )
+
+        # Ensure description is not empty
+        if not description.strip():
+            raise Exception("Generated description is empty")
+
+        return description.strip()
+
+    except Exception as e:
+        raise Exception(f"Error generating random SQL description: {str(e)}")
