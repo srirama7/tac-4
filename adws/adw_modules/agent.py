@@ -261,8 +261,18 @@ def execute_template(request: AgentTemplateRequest) -> AgentPromptResponse:
             with open(template_path, "r") as f:
                 template_content = f.read()
 
-            # Replace $ARGUMENTS with the provided arguments
-            prompt = template_content.replace("$ARGUMENTS", " ".join(request.args))
+            # Support two substitution formats:
+            # 1. $ARGUMENTS - replaced with space-separated args
+            # 2. $1, $2, $3, etc. - replaced with individual args
+
+            if "$ARGUMENTS" in template_content:
+                # Format 1: Single $ARGUMENTS placeholder
+                prompt = template_content.replace("$ARGUMENTS", " ".join(request.args))
+            else:
+                # Format 2: Individual $1, $2, $3 placeholders
+                prompt = template_content
+                for i, arg in enumerate(request.args, 1):
+                    prompt = prompt.replace(f"${i}", arg)
         except Exception as e:
             print(f"Warning: Could not load template {template_path}: {e}")
             # Fallback to using slash command directly
