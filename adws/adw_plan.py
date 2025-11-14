@@ -112,7 +112,8 @@ def main():
     # Fetch issue details
     issue: GitHubIssue = fetch_issue(issue_number, repo_path)
 
-    logger.debug(f"Fetched issue: {issue.model_dump_json(indent=2, by_alias=True)}")
+    # Log issue info (skip full JSON due to emoji characters that cause encoding issues on Windows)
+    logger.debug(f"Fetched issue #{issue.number}: {issue.title}")
     make_issue_comment(
         issue_number, format_issue_message(adw_id, "ops", "✅ Starting planning phase")
     )
