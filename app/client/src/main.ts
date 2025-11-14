@@ -6,6 +6,7 @@ import { api } from './api/client'
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
   initializeQueryInput();
+  initializeGenerateQuery();
   initializeFileUpload();
   initializeModal();
   loadDatabaseSchema();
@@ -45,6 +46,47 @@ function initializeQueryInput() {
   queryInput.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       queryButton.click();
+    }
+  });
+}
+
+// Generate Query Functionality
+function initializeGenerateQuery() {
+  const generateButton = document.getElementById('generate-query-button') as HTMLButtonElement;
+  const queryInput = document.getElementById('query-input') as HTMLTextAreaElement;
+
+  generateButton.addEventListener('click', async () => {
+    // Disable button and show loading state
+    generateButton.disabled = true;
+    const originalText = generateButton.textContent;
+    generateButton.innerHTML = '<span class="loading"></span>';
+
+    try {
+      const response = await api.generateQuery();
+
+      if (response.error) {
+        // Show error message
+        displayError(response.error);
+      } else {
+        // Populate (overwrite) the query input field
+        queryInput.value = response.query;
+
+        // Optional: Add subtle visual feedback
+        queryInput.style.transition = 'background-color 0.3s';
+        queryInput.style.backgroundColor = 'rgba(102, 126, 234, 0.05)';
+        setTimeout(() => {
+          queryInput.style.backgroundColor = '';
+        }, 500);
+
+        // Focus on the input field
+        queryInput.focus();
+      }
+    } catch (error) {
+      displayError(error instanceof Error ? error.message : 'Failed to generate query');
+    } finally {
+      // Re-enable button and restore text
+      generateButton.disabled = false;
+      generateButton.textContent = originalText || 'Generate Query';
     }
   });
 }

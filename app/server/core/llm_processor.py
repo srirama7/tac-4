@@ -148,15 +148,95 @@ def generate_sql(request: QueryRequest, schema_info: Dict[str, Any]) -> str:
     """
     openai_key = os.environ.get("OPENAI_API_KEY")
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
-    
+
     # Check API key availability first (OpenAI priority)
     if openai_key:
         return generate_sql_with_openai(request.query, schema_info)
     elif anthropic_key:
         return generate_sql_with_anthropic(request.query, schema_info)
-    
+
     # Fall back to request preference if both keys available or neither available
     if request.llm_provider == "openai":
         return generate_sql_with_openai(request.query, schema_info)
     else:
         return generate_sql_with_anthropic(request.query, schema_info)
+
+def generate_random_query(schema_info: Dict[str, Any]) -> str:
+    """
+    Generate an interesting natural language query based on the database schema.
+    Uses the same LLM routing logic as generate_sql (OpenAI priority, then Anthropic).
+
+    Args:
+        schema_info: Database schema information from get_database_schema()
+
+    Returns:
+        A natural language query string (limited to two sentences)
+
+    Raises:
+        ValueError: If no tables exist in the schema
+        Exception: If LLM API call fails
+    """
+    # Check if any tables exist
+    if not schema_info.get('tables') or len(schema_info['tables']) == 0:
+        raise ValueError("No tables available in the database. Please upload data first.")
+
+    # Format schema for prompt
+    schema_description = format_schema_for_prompt(schema_info)
+
+    # Create prompt for query generation
+    prompt = f"""Given the following database schema:
+
+{schema_description}
+
+Generate an interesting natural language query that demonstrates what types of questions a user could ask about this data. The query should be realistic, meaningful, and showcase the capabilities of the database.
+
+Rules:
+- Return ONLY the natural language query, no explanations or SQL
+- Limit your response to a maximum of two sentences
+- Make the query interesting and insightful (e.g., show trends, comparisons, aggregations, or relationships)
+- Use proper natural language phrasing that a real user would ask
+- If multiple tables exist, consider queries that might involve relationships between tables
+- Focus on queries that would provide meaningful insights into the data
+
+Natural Language Query:"""
+
+    # Route to appropriate LLM provider (same logic as generate_sql)
+    openai_key = os.environ.get("OPENAI_API_KEY")
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+
+    try:
+        if openai_key:
+            # Use OpenAI
+            client = OpenAI(api_key=openai_key)
+            response = client.chat.completions.create(
+                model="gpt-4.1-mini",
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant that generates interesting natural language queries for database exploration."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.8,  # Higher temperature for more variety
+                max_tokens=150
+            )
+            query = response.choices[0].message.content.strip()
+        elif anthropic_key:
+            # Use Anthropic
+            client = Anthropic(api_key=anthropic_key)
+            response = client.messages.create(
+                model="claude-3-haiku-20240307",
+                max_tokens=150,
+                temperature=0.8,  # Higher temperature for more variety
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            query = response.content[0].text.strip()
+        else:
+            raise ValueError("No LLM API key available. Please set OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable.")
+
+        # Clean up the response (remove quotes if present)
+        query = query.strip('"\'')
+
+        return query
+
+    except Exception as e:
+        raise Exception(f"Error generating random query: {str(e)}")

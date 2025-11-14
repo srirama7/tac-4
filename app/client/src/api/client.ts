@@ -55,7 +55,18 @@ export const api = {
       body: JSON.stringify(request)
     });
   },
-  
+
+  // Generate random query
+  async generateQuery(): Promise<QueryGenerationResponse> {
+    return apiRequest<QueryGenerationResponse>('/generate-query', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({})
+    });
+  },
+
   // Get database schema
   async getSchema(): Promise<DatabaseSchemaResponse> {
     return apiRequest<DatabaseSchemaResponse>('/schema');

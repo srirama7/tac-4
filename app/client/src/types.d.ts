@@ -25,6 +25,15 @@ interface QueryResponse {
   error?: string;
 }
 
+// Query Generation Types
+interface QueryGenerationRequest {}
+
+interface QueryGenerationResponse {
+  query: string;
+  tables_analyzed: string[];
+  error?: string;
+}
+
 // Database Schema Types
 interface ColumnInfo {
   name: string;

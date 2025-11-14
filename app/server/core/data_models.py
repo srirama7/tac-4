@@ -70,6 +70,15 @@ class InsightsResponse(BaseModel):
     generated_at: datetime
     error: Optional[str] = None
 
+# Query Generation Models
+class QueryGenerationRequest(BaseModel):
+    pass  # No input needed
+
+class QueryGenerationResponse(BaseModel):
+    query: str
+    tables_analyzed: List[str]
+    error: Optional[str] = None
+
 # Health Check Models
 class HealthCheckRequest(BaseModel):
     pass
