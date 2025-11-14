@@ -91,6 +91,9 @@ def get_claude_env() -> Dict[str, str]:
     Returns a dictionary containing only the necessary environment variables
     based on .env.sample configuration.
 
+    Claude Code CLI handles its own authentication and does not require
+    ANTHROPIC_API_KEY, which is only needed for direct Anthropic API calls.
+
     Subprocess env behavior:
     - env=None → Inherits parent's environment (default)
     - env={} → Empty environment (no variables)
@@ -105,9 +108,8 @@ def get_claude_env() -> Dict[str, str]:
     result = subprocess.run(cmd, capture_output=True, text=True, env={})
     """
     required_env_vars = {
-        # Anthropic Configuration (required)
-        "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY"),
         # Claude Code Configuration
+        # Note: ANTHROPIC_API_KEY is NOT required here - Claude Code CLI handles its own auth
         "CLAUDE_CODE_PATH": os.getenv("CLAUDE_CODE_PATH", "claude"),
         "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": os.getenv(
             "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR", "true"
@@ -188,9 +190,9 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
 
     try:
         # Execute Claude Code and pipe output to file
-        with open(request.output_file, "w") as f:
+        with open(request.output_file, "w", encoding='utf-8') as f:
             result = subprocess.run(
-                cmd, stdout=f, stderr=subprocess.PIPE, text=True, env=env
+                cmd, stdout=f, stderr=subprocess.PIPE, text=True, encoding='utf-8', errors='replace', env=env
             )
 
         if result.returncode == 0:
@@ -246,8 +248,26 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
 
 def execute_template(request: AgentTemplateRequest) -> AgentPromptResponse:
     """Execute a Claude Code template with slash command and arguments."""
-    # Construct prompt from slash command and args
-    prompt = f"{request.slash_command} {' '.join(request.args)}"
+    # Try to load the template file from .claude/commands/
+    command_name = request.slash_command.lstrip("/")
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    template_path = os.path.join(project_root, ".claude", "commands", f"{command_name}.md")
+
+    # Check if template file exists
+    if os.path.exists(template_path):
+        try:
+            with open(template_path, "r") as f:
+                template_content = f.read()
+
+            # Replace $ARGUMENTS with the provided arguments
+            prompt = template_content.replace("$ARGUMENTS", " ".join(request.args))
+        except Exception as e:
+            print(f"Warning: Could not load template {template_path}: {e}")
+            # Fallback to using slash command directly
+            prompt = f"{request.slash_command} {' '.join(request.args)}"
+    else:
+        # Fallback to using slash command directly if template doesn't exist
+        prompt = f"{request.slash_command} {' '.join(request.args)}"
 
     # Create output directory with adw_id at project root
     # __file__ is in adws/adw_modules/, so we need to go up 3 levels to get to project root

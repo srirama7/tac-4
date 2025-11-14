@@ -47,9 +47,13 @@ def setup_logger(adw_id: str, trigger_type: str = "adw_plan_build") -> logging.L
     file_handler = logging.FileHandler(log_file, mode='a')
     file_handler.setLevel(logging.DEBUG)
     
-    # Console handler - INFO and above
+    # Console handler - INFO and above with UTF-8 encoding and error handling for Windows
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.INFO)
+    # Set encoding to UTF-8 with 'replace' error handler to avoid emoji encoding issues on Windows
+    if hasattr(console_handler.stream, 'reconfigure'):
+        # Python 3.7+
+        console_handler.stream.reconfigure(encoding='utf-8', errors='replace')
     
     # Format with timestamp for file
     file_formatter = logging.Formatter(
