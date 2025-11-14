@@ -120,8 +120,10 @@ def get_claude_env() -> Dict[str, str]:
         "HOME": os.getenv("HOME"),
         "USER": os.getenv("USER"),
         "PATH": os.getenv("PATH"),
+        "PATHEXT": os.getenv("PATHEXT"),  # Windows executable extensions
         "SHELL": os.getenv("SHELL"),
         "TERM": os.getenv("TERM"),
+        "SYSTEMROOT": os.getenv("SYSTEMROOT"),  # Windows system root
     }
 
     # Only add GitHub tokens if GITHUB_PAT exists
