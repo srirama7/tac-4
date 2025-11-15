@@ -139,10 +139,16 @@ def build_plan(
     issue: GitHubIssue, command: str, adw_id: str, logger: logging.Logger
 ) -> AgentPromptResponse:
     """Build implementation plan for the issue using the specified command."""
+    # Only include essential fields to avoid command line length limits
+    minimal_issue_json = issue.model_dump_json(
+        by_alias=True,
+        include={"number", "title", "body"}
+    )
+
     issue_plan_template_request = AgentTemplateRequest(
         agent_name=AGENT_PLANNER,
         slash_command=command,
-        args=[str(issue.number), adw_id, issue.model_dump_json(by_alias=True)],
+        args=[str(issue.number), adw_id, minimal_issue_json],
         adw_id=adw_id,
         model="sonnet",
     )
