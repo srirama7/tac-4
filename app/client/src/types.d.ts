@@ -70,6 +70,16 @@ interface InsightsResponse {
   error?: string;
 }
 
+// Query Generation Types
+interface GenerateQueryRequest {
+  // Empty request body for now
+}
+
+interface GenerateQueryResponse {
+  query: string;
+  error?: string;
+}
+
 // Health Check Types
 interface HealthCheckResponse {
   status: "ok" | "error";

@@ -70,6 +70,16 @@ class InsightsResponse(BaseModel):
     generated_at: datetime
     error: Optional[str] = None
 
+# Query Generation Models
+class GenerateQueryRequest(BaseModel):
+    """Request model for generating natural language queries based on schema."""
+    pass  # Empty request body for now
+
+class GenerateQueryResponse(BaseModel):
+    """Response model containing a generated natural language query."""
+    query: str = Field(..., description="AI-generated natural language query")
+    error: Optional[str] = None
+
 # Health Check Models
 class HealthCheckRequest(BaseModel):
     pass
