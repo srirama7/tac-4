@@ -148,15 +148,140 @@ def generate_sql(request: QueryRequest, schema_info: Dict[str, Any]) -> str:
     """
     openai_key = os.environ.get("OPENAI_API_KEY")
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
-    
+
     # Check API key availability first (OpenAI priority)
     if openai_key:
         return generate_sql_with_openai(request.query, schema_info)
     elif anthropic_key:
         return generate_sql_with_anthropic(request.query, schema_info)
-    
+
     # Fall back to request preference if both keys available or neither available
     if request.llm_provider == "openai":
         return generate_sql_with_openai(request.query, schema_info)
     else:
         return generate_sql_with_anthropic(request.query, schema_info)
+
+def generate_query_suggestion_with_openai(schema_info: Dict[str, Any]) -> str:
+    """
+    Generate an interesting natural language query suggestion using OpenAI API
+    """
+    try:
+        # Get API key from environment
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY environment variable not set")
+
+        client = OpenAI(api_key=api_key)
+
+        # Format schema for prompt
+        schema_description = format_schema_for_prompt(schema_info)
+
+        # Create prompt
+        prompt = f"""Given the following database schema:
+
+{schema_description}
+
+Generate ONE interesting and creative natural language query that would showcase interesting insights from this data.
+
+Rules:
+- Return ONLY the natural language query, no explanations or additional text
+- Maximum 2 sentences
+- Make it creative and interesting (not just "show me all records")
+- Focus on insights, patterns, trends, or interesting relationships in the data
+- Examples of good queries: "What are the top 5 most expensive products by category?", "Show me users who signed up last month and made more than 3 purchases."
+- Avoid generic queries like "show me all data" or "list all records"
+
+Natural Language Query:"""
+
+        # Call OpenAI API
+        response = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant that generates interesting natural language queries for data analysis."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=100
+        )
+
+        query = response.choices[0].message.content.strip()
+
+        # Remove any quotes or markdown if present
+        query = query.strip('"').strip("'").strip('`')
+
+        return query
+
+    except Exception as e:
+        raise Exception(f"Error generating query suggestion with OpenAI: {str(e)}")
+
+def generate_query_suggestion_with_anthropic(schema_info: Dict[str, Any]) -> str:
+    """
+    Generate an interesting natural language query suggestion using Anthropic API
+    """
+    try:
+        # Get API key from environment
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise ValueError("ANTHROPIC_API_KEY environment variable not set")
+
+        client = Anthropic(api_key=api_key)
+
+        # Format schema for prompt
+        schema_description = format_schema_for_prompt(schema_info)
+
+        # Create prompt
+        prompt = f"""Given the following database schema:
+
+{schema_description}
+
+Generate ONE interesting and creative natural language query that would showcase interesting insights from this data.
+
+Rules:
+- Return ONLY the natural language query, no explanations or additional text
+- Maximum 2 sentences
+- Make it creative and interesting (not just "show me all records")
+- Focus on insights, patterns, trends, or interesting relationships in the data
+- Examples of good queries: "What are the top 5 most expensive products by category?", "Show me users who signed up last month and made more than 3 purchases."
+- Avoid generic queries like "show me all data" or "list all records"
+
+Natural Language Query:"""
+
+        # Call Anthropic API
+        response = client.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=100,
+            temperature=0.7,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
+
+        query = response.content[0].text.strip()
+
+        # Remove any quotes or markdown if present
+        query = query.strip('"').strip("'").strip('`')
+
+        return query
+
+    except Exception as e:
+        raise Exception(f"Error generating query suggestion with Anthropic: {str(e)}")
+
+def generate_query_suggestion(schema_info: Dict[str, Any], llm_provider: str = "openai") -> str:
+    """
+    Generate an interesting natural language query suggestion based on database schema.
+    Routes to appropriate LLM provider.
+    """
+    openai_key = os.environ.get("OPENAI_API_KEY")
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+
+    # Check API key availability first (OpenAI priority)
+    if openai_key:
+        return generate_query_suggestion_with_openai(schema_info)
+    elif anthropic_key:
+        return generate_query_suggestion_with_anthropic(schema_info)
+
+    # Fall back to request preference if both keys available or neither available
+    if llm_provider == "openai":
+        return generate_query_suggestion_with_openai(schema_info)
+    else:
+        return generate_query_suggestion_with_anthropic(schema_info)

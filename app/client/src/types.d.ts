@@ -78,3 +78,14 @@ interface HealthCheckResponse {
   version: string;
   uptime_seconds: number;
 }
+
+// Query Suggestion Types
+interface QuerySuggestionRequest {
+  llm_provider: "openai" | "anthropic";
+}
+
+interface QuerySuggestionResponse {
+  suggested_query: string;
+  table_count: number;
+  error?: string;
+}
