@@ -160,10 +160,21 @@ class TestQueryGenerationWithAnthropic:
 class TestQueryGenerationRouting:
     """Test LLM provider routing logic"""
 
+    @patch('core.llm_processor.generate_query_suggestion_with_gemini')
+    @patch.dict('os.environ', {'GEMINI_API_KEY': 'test-key'})
+    def test_routes_to_gemini_when_key_exists(self, mock_gemini_gen, sample_schema_multiple_tables):
+        """Test that Gemini is preferred when API key exists (highest priority)"""
+        mock_gemini_gen.return_value = "Test query"
+
+        result = generate_query_suggestion(sample_schema_multiple_tables, "gemini")
+
+        mock_gemini_gen.assert_called_once_with(sample_schema_multiple_tables)
+        assert result == "Test query"
+
     @patch('core.llm_processor.generate_query_suggestion_with_openai')
-    @patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'})
+    @patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}, clear=True)
     def test_routes_to_openai_when_key_exists(self, mock_openai_gen, sample_schema_multiple_tables):
-        """Test that OpenAI is preferred when API key exists"""
+        """Test that OpenAI is used when only OpenAI key exists"""
         mock_openai_gen.return_value = "Test query"
 
         result = generate_query_suggestion(sample_schema_multiple_tables, "openai")
@@ -172,7 +183,7 @@ class TestQueryGenerationRouting:
         assert result == "Test query"
 
     @patch('core.llm_processor.generate_query_suggestion_with_anthropic')
-    @patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'test-key'})
+    @patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'test-key'}, clear=True)
     def test_routes_to_anthropic_when_key_exists(self, mock_anthropic_gen, sample_schema_multiple_tables):
         """Test that Anthropic is used when only Anthropic key exists"""
         mock_anthropic_gen.return_value = "Test query"
@@ -182,16 +193,16 @@ class TestQueryGenerationRouting:
         mock_anthropic_gen.assert_called_once_with(sample_schema_multiple_tables)
         assert result == "Test query"
 
-    @patch('core.llm_processor.generate_query_suggestion_with_openai')
-    @patch.dict('os.environ', {'OPENAI_API_KEY': 'openai-key', 'ANTHROPIC_API_KEY': 'anthropic-key'})
-    def test_prefers_openai_when_both_keys_exist(self, mock_openai_gen, sample_schema_multiple_tables):
-        """Test that OpenAI is preferred when both API keys exist"""
-        mock_openai_gen.return_value = "Test query"
+    @patch('core.llm_processor.generate_query_suggestion_with_gemini')
+    @patch.dict('os.environ', {'GEMINI_API_KEY': 'gemini-key', 'OPENAI_API_KEY': 'openai-key', 'ANTHROPIC_API_KEY': 'anthropic-key'})
+    def test_prefers_gemini_when_all_keys_exist(self, mock_gemini_gen, sample_schema_multiple_tables):
+        """Test that Gemini is preferred when all API keys exist"""
+        mock_gemini_gen.return_value = "Test query"
 
         result = generate_query_suggestion(sample_schema_multiple_tables, "anthropic")
 
-        # Should still call OpenAI despite requesting Anthropic, because OpenAI has priority
-        mock_openai_gen.assert_called_once_with(sample_schema_multiple_tables)
+        # Should still call Gemini despite requesting Anthropic, because Gemini has highest priority
+        mock_gemini_gen.assert_called_once_with(sample_schema_multiple_tables)
 
 
 class TestEdgeCases:
