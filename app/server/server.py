@@ -17,12 +17,15 @@ from core.data_models import (
     InsightsResponse,
     HealthCheckResponse,
     TableSchema,
-    ColumnInfo
+    ColumnInfo,
+    QuerySuggestionRequest,
+    QuerySuggestionResponse
 )
 from core.file_processor import convert_csv_to_sqlite, convert_json_to_sqlite, convert_jsonl_to_sqlite
 from core.llm_processor import generate_sql
 from core.sql_processor import execute_sql_safely, get_database_schema
 from core.insights import generate_insights
+from core.query_generator import generate_query_suggestion
 from core.sql_security import (
     execute_query_safely,
     validate_identifier,
@@ -236,6 +239,50 @@ async def health_check() -> HealthCheckResponse:
             database_connected=False,
             tables_count=0,
             uptime_seconds=0
+        )
+
+@app.post("/api/generate-query-suggestion", response_model=QuerySuggestionResponse)
+async def generate_query_suggestion_endpoint(request: QuerySuggestionRequest) -> QuerySuggestionResponse:
+    """Generate interesting natural language query suggestions based on database schema"""
+    try:
+        # Get current database schema
+        schema_info = get_database_schema()
+
+        # Check if database has any tables
+        if not schema_info.get('tables'):
+            return QuerySuggestionResponse(
+                query="",
+                tables_analyzed=[],
+                error="Database is empty. Please upload data first."
+            )
+
+        # Generate query suggestion
+        query = generate_query_suggestion(schema_info, request.llm_provider)
+
+        # Get list of tables analyzed
+        tables_analyzed = list(schema_info['tables'].keys())
+
+        response = QuerySuggestionResponse(
+            query=query,
+            tables_analyzed=tables_analyzed
+        )
+        logger.info(f"[SUCCESS] Query suggestion generated: {query[:50]}... (tables: {tables_analyzed})")
+        return response
+    except ValueError as e:
+        # Handle validation errors (empty database, no API keys)
+        logger.error(f"[ERROR] Query suggestion validation failed: {str(e)}")
+        return QuerySuggestionResponse(
+            query="",
+            tables_analyzed=[],
+            error=str(e)
+        )
+    except Exception as e:
+        logger.error(f"[ERROR] Query suggestion generation failed: {str(e)}")
+        logger.error(f"[ERROR] Full traceback:\n{traceback.format_exc()}")
+        return QuerySuggestionResponse(
+            query="",
+            tables_analyzed=[],
+            error=str(e)
         )
 
 @app.delete("/api/table/{table_name}")

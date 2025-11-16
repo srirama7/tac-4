@@ -15,22 +15,23 @@ document.addEventListener('DOMContentLoaded', () => {
 function initializeQueryInput() {
   const queryInput = document.getElementById('query-input') as HTMLTextAreaElement;
   const queryButton = document.getElementById('query-button') as HTMLButtonElement;
-  
+  const generateQueryButton = document.getElementById('generate-query-button') as HTMLButtonElement;
+
   queryButton.addEventListener('click', async () => {
     const query = queryInput.value.trim();
     if (!query) return;
-    
+
     queryButton.disabled = true;
     queryButton.innerHTML = '<span class="loading"></span>';
-    
+
     try {
       const response = await api.processQuery({
         query,
         llm_provider: 'openai'  // Default to OpenAI
       });
-      
+
       displayResults(response, query);
-      
+
       // Clear the input field on success
       queryInput.value = '';
     } catch (error) {
@@ -40,7 +41,33 @@ function initializeQueryInput() {
       queryButton.textContent = 'Query';
     }
   });
-  
+
+  // Generate Query button handler
+  generateQueryButton.addEventListener('click', async () => {
+    generateQueryButton.disabled = true;
+    generateQueryButton.innerHTML = '<span class="loading"></span>';
+
+    try {
+      const response = await api.generateQuerySuggestion({
+        llm_provider: 'openai'  // Default to OpenAI
+      });
+
+      if (response.error) {
+        displayError(response.error);
+      } else {
+        // Populate the query input field with the generated query
+        queryInput.value = response.query;
+        // Focus the input field
+        queryInput.focus();
+      }
+    } catch (error) {
+      displayError(error instanceof Error ? error.message : 'Failed to generate query suggestion');
+    } finally {
+      generateQueryButton.disabled = false;
+      generateQueryButton.textContent = 'Generate Query';
+    }
+  });
+
   // Allow Cmd+Enter (Mac) or Ctrl+Enter (Windows/Linux) to submit
   queryInput.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {

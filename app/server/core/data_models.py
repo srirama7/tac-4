@@ -80,3 +80,12 @@ class HealthCheckResponse(BaseModel):
     tables_count: int
     version: str = "1.0.0"
     uptime_seconds: float
+
+# Query Suggestion Models
+class QuerySuggestionRequest(BaseModel):
+    llm_provider: Optional[Literal["openai", "anthropic"]] = "openai"
+
+class QuerySuggestionResponse(BaseModel):
+    query: str = Field(..., description="Generated natural language query suggestion")
+    tables_analyzed: List[str] = Field(default_factory=list, description="List of table names analyzed for the suggestion")
+    error: Optional[str] = None
