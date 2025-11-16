@@ -226,3 +226,196 @@ def generate_sql(request: QueryRequest, schema_info: Dict[str, Any]) -> str:
         return generate_sql_with_openai(request.query, schema_info)
     else:
         return generate_sql_with_anthropic(request.query, schema_info)
+
+def generate_natural_language_query_with_gemini(schema_info: Dict[str, Any]) -> str:
+    """
+    Generate natural language query using Google Gemini API
+    """
+    try:
+        # Get API key from environment
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY environment variable not set")
+
+        # Configure Gemini
+        genai.configure(api_key=api_key)
+
+        # Format schema for prompt
+        schema_description = format_schema_for_prompt(schema_info)
+
+        # Create prompt
+        prompt = f"""Given the following database schema:
+
+{schema_description}
+
+Generate an interesting natural language query that would be useful for analyzing this data.
+
+Requirements:
+- The query should be conversational and use natural language (like how a human would ask)
+- It should be relevant to the tables and columns present in the schema
+- It should showcase data analysis capabilities (e.g., aggregations, filtering, comparisons)
+- Limit to a maximum of TWO sentences
+- Make it actionable and specific to the data available
+- The query should be convertible to SQL
+
+Return ONLY the natural language query, nothing else.
+
+Query:"""
+
+        # Call Gemini API
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
+                temperature=0.7,  # Higher temperature for more creative queries
+                max_output_tokens=100,
+            )
+        )
+
+        query = response.text.strip()
+
+        # Remove quotes if present
+        if query.startswith('"') and query.endswith('"'):
+            query = query[1:-1]
+        if query.startswith("'") and query.endswith("'"):
+            query = query[1:-1]
+
+        return query
+
+    except Exception as e:
+        raise Exception(f"Error generating natural language query with Gemini: {str(e)}")
+
+def generate_natural_language_query_with_openai(schema_info: Dict[str, Any]) -> str:
+    """
+    Generate natural language query using OpenAI API
+    """
+    try:
+        # Get API key from environment
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY environment variable not set")
+
+        client = OpenAI(api_key=api_key)
+
+        # Format schema for prompt
+        schema_description = format_schema_for_prompt(schema_info)
+
+        # Create prompt
+        prompt = f"""Given the following database schema:
+
+{schema_description}
+
+Generate an interesting natural language query that would be useful for analyzing this data.
+
+Requirements:
+- The query should be conversational and use natural language (like how a human would ask)
+- It should be relevant to the tables and columns present in the schema
+- It should showcase data analysis capabilities (e.g., aggregations, filtering, comparisons)
+- Limit to a maximum of TWO sentences
+- Make it actionable and specific to the data available
+- The query should be convertible to SQL
+
+Return ONLY the natural language query, nothing else.
+
+Query:"""
+
+        # Call OpenAI API
+        response = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[
+                {"role": "system", "content": "You are a data analyst who creates interesting queries for database exploration."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,  # Higher temperature for more creative queries
+            max_tokens=100
+        )
+
+        query = response.choices[0].message.content.strip()
+
+        # Remove quotes if present
+        if query.startswith('"') and query.endswith('"'):
+            query = query[1:-1]
+        if query.startswith("'") and query.endswith("'"):
+            query = query[1:-1]
+
+        return query
+
+    except Exception as e:
+        raise Exception(f"Error generating natural language query with OpenAI: {str(e)}")
+
+def generate_natural_language_query_with_anthropic(schema_info: Dict[str, Any]) -> str:
+    """
+    Generate natural language query using Anthropic API
+    """
+    try:
+        # Get API key from environment
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise ValueError("ANTHROPIC_API_KEY environment variable not set")
+
+        client = Anthropic(api_key=api_key)
+
+        # Format schema for prompt
+        schema_description = format_schema_for_prompt(schema_info)
+
+        # Create prompt
+        prompt = f"""Given the following database schema:
+
+{schema_description}
+
+Generate an interesting natural language query that would be useful for analyzing this data.
+
+Requirements:
+- The query should be conversational and use natural language (like how a human would ask)
+- It should be relevant to the tables and columns present in the schema
+- It should showcase data analysis capabilities (e.g., aggregations, filtering, comparisons)
+- Limit to a maximum of TWO sentences
+- Make it actionable and specific to the data available
+- The query should be convertible to SQL
+
+Return ONLY the natural language query, nothing else.
+
+Query:"""
+
+        # Call Anthropic API
+        response = client.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=100,
+            temperature=0.7,  # Higher temperature for more creative queries
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
+
+        query = response.content[0].text.strip()
+
+        # Remove quotes if present
+        if query.startswith('"') and query.endswith('"'):
+            query = query[1:-1]
+        if query.startswith("'") and query.endswith("'"):
+            query = query[1:-1]
+
+        return query
+
+    except Exception as e:
+        raise Exception(f"Error generating natural language query with Anthropic: {str(e)}")
+
+def generate_natural_language_query(schema_info: Dict[str, Any]) -> str:
+    """
+    Generate a natural language query based on database schema.
+    Uses the same LLM routing logic as generate_sql (Gemini → OpenAI → Anthropic priority).
+    """
+    gemini_key = os.environ.get("GEMINI_API_KEY")
+    openai_key = os.environ.get("OPENAI_API_KEY")
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+
+    # Check API key availability first (Gemini priority)
+    if gemini_key:
+        return generate_natural_language_query_with_gemini(schema_info)
+    elif openai_key:
+        return generate_natural_language_query_with_openai(schema_info)
+    elif anthropic_key:
+        return generate_natural_language_query_with_anthropic(schema_info)
+
+    # If no API keys available, raise error
+    raise ValueError("No LLM API keys configured. Please set GEMINI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY.")

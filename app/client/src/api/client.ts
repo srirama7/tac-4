@@ -71,7 +71,18 @@ export const api = {
       body: JSON.stringify(request)
     });
   },
-  
+
+  // Generate query
+  async generateQuery(): Promise<GenerateQueryResponse> {
+    return apiRequest<GenerateQueryResponse>('/generate-query', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({})
+    });
+  },
+
   // Health check
   async healthCheck(): Promise<HealthCheckResponse> {
     return apiRequest<HealthCheckResponse>('/health');
