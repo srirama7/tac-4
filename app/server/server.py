@@ -33,7 +33,10 @@ from core.sql_security import (
 )
 
 # Load .env file from server directory
-load_dotenv()
+# Get the directory where server.py is located
+server_dir = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(server_dir, '.env')
+load_dotenv(dotenv_path=env_path)
 
 # Configure logging
 logging.basicConfig(
