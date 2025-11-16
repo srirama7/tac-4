@@ -45,7 +45,7 @@ def parse_jsonl_output(
         Tuple of (all_messages, result_message) where result_message is None if not found
     """
     try:
-        with open(output_file, "r") as f:
+        with open(output_file, "r", encoding='utf-8') as f:
             # Read all lines and parse each as JSON
             messages = [json.loads(line) for line in f if line.strip()]
 
@@ -78,8 +78,8 @@ def convert_jsonl_to_json(jsonl_file: str) -> str:
     messages, _ = parse_jsonl_output(jsonl_file)
 
     # Write as JSON array
-    with open(json_file, "w") as f:
-        json.dump(messages, f, indent=2)
+    with open(json_file, "w", encoding='utf-8') as f:
+        json.dump(messages, f, indent=2, ensure_ascii=False)
 
     print(f"Created JSON file: {json_file}")
     return json_file
@@ -155,7 +155,7 @@ def save_prompt(prompt: str, adw_id: str, agent_name: str = "ops") -> None:
 
     # Save prompt to file
     prompt_file = os.path.join(prompt_dir, f"{command_name}.txt")
-    with open(prompt_file, "w") as f:
+    with open(prompt_file, "w", encoding='utf-8') as f:
         f.write(prompt)
 
     print(f"Saved prompt to: {prompt_file}")
@@ -228,7 +228,7 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
                 )
             else:
                 # No result message found, return raw output
-                with open(request.output_file, "r") as f:
+                with open(request.output_file, "r", encoding='utf-8') as f:
                     raw_output = f.read()
                 return AgentPromptResponse(
                     output=raw_output, success=True, session_id=None
