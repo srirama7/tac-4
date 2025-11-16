@@ -17,10 +17,12 @@ from core.data_models import (
     InsightsResponse,
     HealthCheckResponse,
     TableSchema,
-    ColumnInfo
+    ColumnInfo,
+    QuerySuggestionRequest,
+    QuerySuggestionResponse
 )
 from core.file_processor import convert_csv_to_sqlite, convert_json_to_sqlite, convert_jsonl_to_sqlite
-from core.llm_processor import generate_sql
+from core.llm_processor import generate_sql, generate_query_suggestion
 from core.sql_processor import execute_sql_safely, get_database_schema
 from core.insights import generate_insights
 from core.sql_security import (
@@ -31,7 +33,10 @@ from core.sql_security import (
 )
 
 # Load .env file from server directory
-load_dotenv()
+# Get the directory where server.py is located
+server_dir = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(server_dir, '.env')
+load_dotenv(dotenv_path=env_path)
 
 # Configure logging
 logging.basicConfig(
@@ -238,6 +243,47 @@ async def health_check() -> HealthCheckResponse:
             uptime_seconds=0
         )
 
+@app.post("/api/suggest-query", response_model=QuerySuggestionResponse)
+async def suggest_query(request: QuerySuggestionRequest) -> QuerySuggestionResponse:
+    """Generate an interesting natural language query suggestion based on database schema"""
+    try:
+        # Get database schema
+        schema_info = get_database_schema()
+
+        # Check if there are any tables
+        if not schema_info.get('tables') or len(schema_info['tables']) == 0:
+            return QuerySuggestionResponse(
+                suggested_query="",
+                table_count=0,
+                error="Please upload data first before generating queries"
+            )
+
+        # Generate query suggestion using LLM
+        suggested_query = generate_query_suggestion(schema_info, request.llm_provider)
+
+        # Validate that we got a non-empty response
+        if not suggested_query or suggested_query.strip() == "":
+            return QuerySuggestionResponse(
+                suggested_query="",
+                table_count=len(schema_info['tables']),
+                error="Failed to generate query suggestion. Please try again."
+            )
+
+        response = QuerySuggestionResponse(
+            suggested_query=suggested_query,
+            table_count=len(schema_info['tables'])
+        )
+        logger.info(f"[SUCCESS] Query suggestion generated: {suggested_query[:50]}... ({len(schema_info['tables'])} tables)")
+        return response
+    except Exception as e:
+        logger.error(f"[ERROR] Query suggestion failed: {str(e)}")
+        logger.error(f"[ERROR] Full traceback:\n{traceback.format_exc()}")
+        return QuerySuggestionResponse(
+            suggested_query="",
+            table_count=0,
+            error=f"Error generating query suggestion: {str(e)}"
+        )
+
 @app.delete("/api/table/{table_name}")
 async def delete_table(table_name: str):
     """Delete a table from the database"""
@@ -247,14 +293,14 @@ async def delete_table(table_name: str):
             validate_identifier(table_name, "table")
         except SQLSecurityError as e:
             raise HTTPException(400, str(e))
-        
+
         conn = sqlite3.connect("db/database.db")
-        
+
         # Check if table exists using secure method
         if not check_table_exists(conn, table_name):
             conn.close()
             raise HTTPException(404, f"Table '{table_name}' not found")
-        
+
         # Drop the table using safe query execution with DDL permission
         execute_query_safely(
             conn,
@@ -264,7 +310,7 @@ async def delete_table(table_name: str):
         )
         conn.commit()
         conn.close()
-        
+
         response = {"message": f"Table '{table_name}' deleted successfully"}
         logger.info(f"[SUCCESS] Table deleted: {table_name}")
         return response

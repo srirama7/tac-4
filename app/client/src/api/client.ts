@@ -75,5 +75,16 @@ export const api = {
   // Health check
   async healthCheck(): Promise<HealthCheckResponse> {
     return apiRequest<HealthCheckResponse>('/health');
+  },
+
+  // Generate query suggestion
+  async generateQuerySuggestion(request: QuerySuggestionRequest = { llm_provider: "openai" }): Promise<QuerySuggestionResponse> {
+    return apiRequest<QuerySuggestionResponse>('/suggest-query', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(request)
+    });
   }
 };

@@ -2,6 +2,7 @@ import os
 from typing import Dict, Any
 from openai import OpenAI
 from anthropic import Anthropic
+import google.generativeai as genai
 from core.data_models import QueryRequest
 
 def generate_sql_with_openai(query_text: str, schema_info: Dict[str, Any]) -> str:
@@ -123,6 +124,59 @@ SQL Query:"""
     except Exception as e:
         raise Exception(f"Error generating SQL with Anthropic: {str(e)}")
 
+def generate_sql_with_gemini(query_text: str, schema_info: Dict[str, Any]) -> str:
+    """
+    Generate SQL query using Google Gemini API
+    """
+    try:
+        # Get API key from environment
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY environment variable not set")
+
+        # Configure Gemini
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-flash-latest')
+
+        # Format schema for prompt
+        schema_description = format_schema_for_prompt(schema_info)
+
+        # Create prompt
+        prompt = f"""Given the following database schema:
+
+{schema_description}
+
+Convert this natural language query to SQL: "{query_text}"
+
+Rules:
+- Return ONLY the SQL query, no explanations
+- Use proper SQLite syntax
+- Handle date/time queries appropriately (e.g., "last week" = date('now', '-7 days'))
+- Be careful with column names and table names
+- If the query is ambiguous, make reasonable assumptions
+- For multi-table queries, use proper JOIN conditions to avoid Cartesian products
+- Limit results to reasonable amounts (e.g., add LIMIT 100 for large result sets)
+- When joining tables, use meaningful relationships between tables
+
+SQL Query:"""
+
+        # Call Gemini API
+        response = model.generate_content(prompt)
+        sql = response.text.strip()
+
+        # Clean up the SQL (remove markdown if present)
+        if sql.startswith("```sql"):
+            sql = sql[6:]
+        if sql.startswith("```"):
+            sql = sql[3:]
+        if sql.endswith("```"):
+            sql = sql[:-3]
+
+        return sql.strip()
+
+    except Exception as e:
+        raise Exception(f"Error generating SQL with Gemini: {str(e)}")
+
 def format_schema_for_prompt(schema_info: Dict[str, Any]) -> str:
     """
     Format database schema for LLM prompt
@@ -144,19 +198,201 @@ def format_schema_for_prompt(schema_info: Dict[str, Any]) -> str:
 def generate_sql(request: QueryRequest, schema_info: Dict[str, Any]) -> str:
     """
     Route to appropriate LLM provider based on API key availability and request preference.
-    Priority: 1) OpenAI API key exists, 2) Anthropic API key exists, 3) request.llm_provider
+    Priority: 1) Gemini API key exists, 2) OpenAI API key exists, 3) Anthropic API key exists, 4) request.llm_provider
     """
+    gemini_key = os.environ.get("GEMINI_API_KEY")
     openai_key = os.environ.get("OPENAI_API_KEY")
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
-    
-    # Check API key availability first (OpenAI priority)
-    if openai_key:
+
+    # Check API key availability first (Gemini priority)
+    if gemini_key:
+        return generate_sql_with_gemini(request.query, schema_info)
+    elif openai_key:
         return generate_sql_with_openai(request.query, schema_info)
     elif anthropic_key:
         return generate_sql_with_anthropic(request.query, schema_info)
-    
-    # Fall back to request preference if both keys available or neither available
-    if request.llm_provider == "openai":
+
+    # Fall back to request preference if no keys available
+    if request.llm_provider == "gemini":
+        return generate_sql_with_gemini(request.query, schema_info)
+    elif request.llm_provider == "openai":
         return generate_sql_with_openai(request.query, schema_info)
     else:
         return generate_sql_with_anthropic(request.query, schema_info)
+
+def generate_query_suggestion_with_openai(schema_info: Dict[str, Any]) -> str:
+    """
+    Generate an interesting natural language query suggestion using OpenAI API
+    """
+    try:
+        # Get API key from environment
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY environment variable not set")
+
+        client = OpenAI(api_key=api_key)
+
+        # Format schema for prompt
+        schema_description = format_schema_for_prompt(schema_info)
+
+        # Create prompt
+        prompt = f"""Given the following database schema:
+
+{schema_description}
+
+Generate ONE interesting and creative natural language query that would showcase interesting insights from this data.
+
+Rules:
+- Return ONLY the natural language query, no explanations or additional text
+- Maximum 2 sentences
+- Make it creative and interesting (not just "show me all records")
+- Focus on insights, patterns, trends, or interesting relationships in the data
+- Examples of good queries: "What are the top 5 most expensive products by category?", "Show me users who signed up last month and made more than 3 purchases."
+- Avoid generic queries like "show me all data" or "list all records"
+
+Natural Language Query:"""
+
+        # Call OpenAI API
+        response = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant that generates interesting natural language queries for data analysis."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=100
+        )
+
+        query = response.choices[0].message.content.strip()
+
+        # Remove any quotes or markdown if present
+        query = query.strip('"').strip("'").strip('`')
+
+        return query
+
+    except Exception as e:
+        raise Exception(f"Error generating query suggestion with OpenAI: {str(e)}")
+
+def generate_query_suggestion_with_anthropic(schema_info: Dict[str, Any]) -> str:
+    """
+    Generate an interesting natural language query suggestion using Anthropic API
+    """
+    try:
+        # Get API key from environment
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise ValueError("ANTHROPIC_API_KEY environment variable not set")
+
+        client = Anthropic(api_key=api_key)
+
+        # Format schema for prompt
+        schema_description = format_schema_for_prompt(schema_info)
+
+        # Create prompt
+        prompt = f"""Given the following database schema:
+
+{schema_description}
+
+Generate ONE interesting and creative natural language query that would showcase interesting insights from this data.
+
+Rules:
+- Return ONLY the natural language query, no explanations or additional text
+- Maximum 2 sentences
+- Make it creative and interesting (not just "show me all records")
+- Focus on insights, patterns, trends, or interesting relationships in the data
+- Examples of good queries: "What are the top 5 most expensive products by category?", "Show me users who signed up last month and made more than 3 purchases."
+- Avoid generic queries like "show me all data" or "list all records"
+
+Natural Language Query:"""
+
+        # Call Anthropic API
+        response = client.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=100,
+            temperature=0.7,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
+
+        query = response.content[0].text.strip()
+
+        # Remove any quotes or markdown if present
+        query = query.strip('"').strip("'").strip('`')
+
+        return query
+
+    except Exception as e:
+        raise Exception(f"Error generating query suggestion with Anthropic: {str(e)}")
+
+def generate_query_suggestion_with_gemini(schema_info: Dict[str, Any]) -> str:
+    """
+    Generate an interesting natural language query suggestion using Google Gemini API
+    """
+    try:
+        # Get API key from environment
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY environment variable not set")
+
+        # Configure Gemini
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-flash-latest')
+
+        # Format schema for prompt
+        schema_description = format_schema_for_prompt(schema_info)
+
+        # Create prompt
+        prompt = f"""Given the following database schema:
+
+{schema_description}
+
+Generate ONE interesting and creative natural language query that would showcase interesting insights from this data.
+
+Rules:
+- Return ONLY the natural language query, no explanations or additional text
+- Maximum 2 sentences
+- Make it creative and interesting (not just "show me all records")
+- Focus on insights, patterns, trends, or interesting relationships in the data
+- Examples of good queries: "What are the top 5 most expensive products by category?", "Show me users who signed up last month and made more than 3 purchases."
+- Avoid generic queries like "show me all data" or "list all records"
+
+Natural Language Query:"""
+
+        # Call Gemini API
+        response = model.generate_content(prompt)
+        query = response.text.strip()
+
+        # Remove any quotes or markdown if present
+        query = query.strip('"').strip("'").strip('`')
+
+        return query
+
+    except Exception as e:
+        raise Exception(f"Error generating query suggestion with Gemini: {str(e)}")
+
+def generate_query_suggestion(schema_info: Dict[str, Any], llm_provider: str = "gemini") -> str:
+    """
+    Generate an interesting natural language query suggestion based on database schema.
+    Routes to appropriate LLM provider.
+    Priority: 1) Gemini, 2) OpenAI, 3) Anthropic
+    """
+    gemini_key = os.environ.get("GEMINI_API_KEY")
+    openai_key = os.environ.get("OPENAI_API_KEY")
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+
+    # Check API key availability first (Gemini priority)
+    if gemini_key:
+        return generate_query_suggestion_with_gemini(schema_info)
+    elif openai_key:
+        return generate_query_suggestion_with_openai(schema_info)
+    elif anthropic_key:
+        return generate_query_suggestion_with_anthropic(schema_info)
+
+    # Fall back to request preference if no keys available
+    if llm_provider == "gemini":
+        return generate_query_suggestion_with_gemini(schema_info)
+    elif llm_provider == "openai":
+        return generate_query_suggestion_with_openai(schema_info)
+    else:
+        return generate_query_suggestion_with_anthropic(schema_info)

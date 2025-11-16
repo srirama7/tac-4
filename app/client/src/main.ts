@@ -6,6 +6,7 @@ import { api } from './api/client'
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
   initializeQueryInput();
+  initializeQueryGenerator();
   initializeFileUpload();
   initializeModal();
   loadDatabaseSchema();
@@ -15,22 +16,22 @@ document.addEventListener('DOMContentLoaded', () => {
 function initializeQueryInput() {
   const queryInput = document.getElementById('query-input') as HTMLTextAreaElement;
   const queryButton = document.getElementById('query-button') as HTMLButtonElement;
-  
+
   queryButton.addEventListener('click', async () => {
     const query = queryInput.value.trim();
     if (!query) return;
-    
+
     queryButton.disabled = true;
     queryButton.innerHTML = '<span class="loading"></span>';
-    
+
     try {
       const response = await api.processQuery({
         query,
         llm_provider: 'openai'  // Default to OpenAI
       });
-      
+
       displayResults(response, query);
-      
+
       // Clear the input field on success
       queryInput.value = '';
     } catch (error) {
@@ -40,11 +41,40 @@ function initializeQueryInput() {
       queryButton.textContent = 'Query';
     }
   });
-  
+
   // Allow Cmd+Enter (Mac) or Ctrl+Enter (Windows/Linux) to submit
   queryInput.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       queryButton.click();
+    }
+  });
+}
+
+// Query Generator Functionality
+function initializeQueryGenerator() {
+  const queryInput = document.getElementById('query-input') as HTMLTextAreaElement;
+  const generateQueryButton = document.getElementById('generate-query-button') as HTMLButtonElement;
+
+  generateQueryButton.addEventListener('click', async () => {
+    generateQueryButton.disabled = true;
+    const originalText = generateQueryButton.textContent;
+    generateQueryButton.innerHTML = '<span class="loading"></span>';
+
+    try {
+      const response = await api.generateQuerySuggestion({ llm_provider: 'openai' });
+
+      if (response.error) {
+        displayError(response.error);
+      } else {
+        // Populate query input field, overwriting existing content
+        queryInput.value = response.suggested_query;
+        queryInput.focus();
+      }
+    } catch (error) {
+      displayError(error instanceof Error ? error.message : 'Failed to generate query suggestion');
+    } finally {
+      generateQueryButton.disabled = false;
+      generateQueryButton.textContent = originalText || 'Generate Query';
     }
   });
 }
