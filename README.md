@@ -17,6 +17,7 @@ A web application that converts natural language queries to SQL using AI, built 
 - Node.js 18+
 - Bun (or your preferred npm tool: npm, yarn, etc.)
 - OpenAI API key and/or Anthropic API key
+- **For E2E Testing**: Playwright MCP Server configured in Claude Code (see [E2E Testing Setup](#e2e-testing-setup))
 
 ## Setup
 
@@ -181,6 +182,53 @@ cd app/server
 uv run pytest tests/test_sql_injection.py -v
 ```
 
+## E2E Testing Setup
+
+The project includes end-to-end (E2E) tests that use Playwright for browser automation through Claude Code's MCP (Model Context Protocol) integration.
+
+### Prerequisites for E2E Tests
+
+E2E tests require the Playwright MCP server to be configured in Claude Code. Follow these steps:
+
+1. **Install the Playwright MCP Server**:
+   ```bash
+   npx @playwright/mcp@latest
+   ```
+
+2. **Configure Claude Code MCP Settings**:
+   - Open Claude Code settings
+   - Navigate to MCP Servers configuration
+   - Add the Playwright MCP server with the following configuration:
+
+   ```json
+   {
+     "mcpServers": {
+       "playwright": {
+         "command": "npx",
+         "args": ["@playwright/mcp@latest"]
+       }
+     }
+   }
+   ```
+
+3. **Restart Claude Code** to apply the MCP configuration
+
+4. **Verify the setup** by checking that Playwright tools are available in Claude Code
+
+### Running E2E Tests
+
+E2E tests are located in `.claude/commands/e2e/` and can be executed through Claude Code's slash command system:
+
+```
+/test_e2e <adw_id> <agent_name> <test_file_path> <application_url>
+```
+
+Example:
+```
+/test_e2e abc12345 e2e_runner .claude/commands/e2e/test_basic_query.md http://localhost:5173
+```
+
+**Note**: The Playwright MCP server must be properly configured in Claude Code for E2E tests to execute. Without it, tests will fail with a connection error.
 
 ### Additional Security Features
 

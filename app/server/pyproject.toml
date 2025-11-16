@@ -13,12 +13,11 @@ dependencies = [
     "google-generativeai>=0.8.3",
     "pandas==2.3.0",
     "python-dotenv==1.0.1",
+    "pytest==8.4.1",
 ]
 
 [project.optional-dependencies]
-dev = [
-    "pytest==8.4.1",
-]
+dev = []
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
