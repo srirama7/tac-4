@@ -4,6 +4,7 @@ from unittest.mock import patch, MagicMock
 from core.query_generator import (
     generate_query_suggestion_with_openai,
     generate_query_suggestion_with_anthropic,
+    generate_query_suggestion_with_gemini,
     format_schema_for_suggestion_prompt,
     generate_query_suggestion
 )
@@ -159,6 +160,76 @@ class TestQueryGenerator:
 
             assert "Error generating query suggestion with Anthropic" in str(exc_info.value)
 
+    @patch('core.query_generator.genai')
+    def test_generate_query_suggestion_with_gemini_success(self, mock_genai):
+        # Mock Gemini model and response
+        mock_model = MagicMock()
+        mock_genai.GenerativeModel.return_value = mock_model
+
+        mock_response = MagicMock()
+        mock_response.text = "How many events occurred last week?"
+        mock_model.generate_content.return_value = mock_response
+
+        # Mock environment variable
+        with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}):
+            schema_info = {
+                'tables': {
+                    'events': {
+                        'columns': {'id': 'INTEGER', 'name': 'TEXT', 'timestamp': 'TEXT'},
+                        'row_count': 75
+                    }
+                }
+            }
+
+            result = generate_query_suggestion_with_gemini(schema_info)
+
+            assert result == "How many events occurred last week?"
+            mock_genai.configure.assert_called_once_with(api_key='test-key')
+            mock_genai.GenerativeModel.assert_called_once_with('gemini-pro')
+            mock_model.generate_content.assert_called_once()
+
+    @patch('core.query_generator.genai')
+    def test_generate_query_suggestion_with_gemini_removes_quotes(self, mock_genai):
+        # Test quote removal
+        mock_model = MagicMock()
+        mock_genai.GenerativeModel.return_value = mock_model
+
+        mock_response = MagicMock()
+        mock_response.text = '"Show me all events"'
+        mock_model.generate_content.return_value = mock_response
+
+        with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}):
+            schema_info = {'tables': {'events': {'columns': {}, 'row_count': 10}}}
+
+            result = generate_query_suggestion_with_gemini(schema_info)
+
+            assert result == "Show me all events"
+
+    def test_generate_query_suggestion_with_gemini_no_api_key(self):
+        # Test error when API key is not set
+        with patch.dict(os.environ, {}, clear=True):
+            schema_info = {'tables': {}}
+
+            with pytest.raises(Exception) as exc_info:
+                generate_query_suggestion_with_gemini(schema_info)
+
+            assert "GEMINI_API_KEY environment variable not set" in str(exc_info.value)
+
+    @patch('core.query_generator.genai')
+    def test_generate_query_suggestion_with_gemini_api_error(self, mock_genai):
+        # Test API error handling
+        mock_model = MagicMock()
+        mock_genai.GenerativeModel.return_value = mock_model
+        mock_model.generate_content.side_effect = Exception("API Error")
+
+        with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}):
+            schema_info = {'tables': {}}
+
+            with pytest.raises(Exception) as exc_info:
+                generate_query_suggestion_with_gemini(schema_info)
+
+            assert "Error generating query suggestion with Gemini" in str(exc_info.value)
+
     def test_format_schema_for_suggestion_prompt(self):
         # Test schema formatting for query suggestion prompt
         schema_info = {
@@ -219,9 +290,29 @@ class TestQueryGenerator:
 
             assert "No LLM API keys configured" in str(exc_info.value)
 
+    @patch('core.query_generator.generate_query_suggestion_with_gemini')
+    def test_generate_query_suggestion_gemini_key_priority(self, mock_gemini_func):
+        # Test that Gemini is used when Gemini key exists (highest priority)
+        mock_gemini_func.return_value = "What are the most popular products?"
+
+        with patch.dict(os.environ, {'GEMINI_API_KEY': 'gemini-key', 'OPENAI_API_KEY': 'openai-key', 'ANTHROPIC_API_KEY': 'anthropic-key'}):
+            schema_info = {
+                'tables': {
+                    'products': {
+                        'columns': {'id': 'INTEGER', 'name': 'TEXT'},
+                        'row_count': 50
+                    }
+                }
+            }
+
+            result = generate_query_suggestion(schema_info, llm_provider="anthropic")
+
+            assert result == "What are the most popular products?"
+            mock_gemini_func.assert_called_once_with(schema_info)
+
     @patch('core.query_generator.generate_query_suggestion_with_openai')
     def test_generate_query_suggestion_openai_key_priority(self, mock_openai_func):
-        # Test that OpenAI is used when OpenAI key exists
+        # Test that OpenAI is used when OpenAI key exists (second priority)
         mock_openai_func.return_value = "What are the most popular products?"
 
         with patch.dict(os.environ, {'OPENAI_API_KEY': 'openai-key', 'ANTHROPIC_API_KEY': 'anthropic-key'}):
@@ -302,6 +393,26 @@ class TestQueryGenerator:
 
             assert result == "Show me users who have placed orders in the last month"
             mock_openai_func.assert_called_once_with(schema_info)
+
+    @patch('core.query_generator.generate_query_suggestion_with_gemini')
+    def test_generate_query_suggestion_only_gemini_key(self, mock_gemini_func):
+        # Test when only Gemini key exists
+        mock_gemini_func.return_value = "Which products have low inventory?"
+
+        with patch.dict(os.environ, {'GEMINI_API_KEY': 'gemini-key'}, clear=True):
+            schema_info = {
+                'tables': {
+                    'inventory': {
+                        'columns': {'product_id': 'INTEGER', 'quantity': 'INTEGER'},
+                        'row_count': 200
+                    }
+                }
+            }
+
+            result = generate_query_suggestion(schema_info, llm_provider="anthropic")
+
+            assert result == "Which products have low inventory?"
+            mock_gemini_func.assert_called_once_with(schema_info)
 
     @patch('core.query_generator.generate_query_suggestion_with_openai')
     def test_generate_query_suggestion_only_openai_key(self, mock_openai_func):
