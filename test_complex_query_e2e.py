@@ -37,15 +37,26 @@ def run_test():
             upload_button.click()
             time.sleep(0.5)
 
-            # Click on users sample data button
-            users_button = page.locator('button[data-sample="users"], .sample-button:has-text("users")').first
-            users_button.click()
-            time.sleep(3)  # Wait for data to load
+            # Upload users.json file directly
+            file_input = page.locator('#file-input')
+            file_input.set_input_files('C:/Users/amogh/Downloads/tac5/tac-5/app/client/dist/sample-data/users.json')
+
+            # Wait for upload to complete and modal to close
+            time.sleep(3)
+
+            # Close modal if still open
+            modal = page.locator('#upload-modal')
+            if modal.is_visible():
+                close_button = page.locator('.close-modal').first
+                close_button.click()
+                time.sleep(0.5)
+
+            print("  ✓ Sample data uploaded successfully")
+            time.sleep(1)  # Extra time for UI to settle
 
             print("Step 1: Navigate to the Application URL")
             # Already navigated, just verify we're on the page
             page.wait_for_load_state("networkidle")
-            time.sleep(1)
 
             print("Step 2: Take a screenshot of the initial state")
             screenshot_path = f"{SCREENSHOT_DIR}/01_initial_state.png"

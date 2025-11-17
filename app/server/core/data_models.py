@@ -49,6 +49,14 @@ class DatabaseSchemaResponse(BaseModel):
     total_tables: int
     error: Optional[str] = None
 
+# Generate Query Models
+class GenerateQueryRequest(BaseModel):
+    pass  # No input needed for now, can be extended for customization
+
+class GenerateQueryResponse(BaseModel):
+    query: str
+    error: Optional[str] = None
+
 # Insights Models
 class InsightsRequest(BaseModel):
     table_name: str

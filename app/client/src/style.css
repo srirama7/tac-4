@@ -82,6 +82,13 @@ h2 {
   gap: 1rem;
   margin-top: 1rem;
   align-items: center;
+  justify-content: space-between;
+}
+
+.secondary-controls {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
 }
 
 /* Buttons */

@@ -78,3 +78,13 @@ interface HealthCheckResponse {
   version: string;
   uptime_seconds: number;
 }
+
+// Generate Query Types
+interface GenerateQueryRequest {
+  // No fields needed for now
+}
+
+interface GenerateQueryResponse {
+  query: string;
+  error?: string;
+}
