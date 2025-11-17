@@ -1,6 +1,6 @@
 # E2E Test Runner
 
-Execute end-to-end (E2E) tests using Playwright browser automation (MCP Server). If any errors occur and assertions fail mark the test as failed and explain exactly what went wrong.
+Execute end-to-end (E2E) tests using Playwright browser automation. If any errors occur and assertions fail mark the test as failed and explain exactly what went wrong.
 
 ## Variables
 
@@ -9,10 +9,35 @@ agent_name: $2 if provided, otherwise use 'test_e2e'
 e2e_test_file: $3
 application_url: $4 if provided, otherwise use http://localhost:5173
 
+## Execution Strategy
+
+**IMPORTANT**: This test can be executed in two ways:
+
+1. **MCP Playwright Tools (Preferred)**: If Playwright MCP tools are available, use them directly for browser automation
+2. **Python Playwright Package (Fallback)**: If MCP tools are NOT available, create and execute a Python script using the `playwright` package
+
+### Detecting MCP Availability
+
+Check if Playwright MCP tools (like `mcp__playwright__*`) are available. If they are NOT available, you MUST use the Python fallback approach described below.
+
+### Python Fallback Approach
+
+When MCP tools are unavailable:
+1. Create a temporary Python script that implements the test steps using `playwright.sync_api`
+2. The script should:
+   - Import `from playwright.sync_api import sync_playwright`
+   - Read and parse the test file to understand the steps
+   - Execute each test step programmatically
+   - Capture screenshots at the specified points
+   - Return results in the required JSON format
+3. Execute the Python script using: `uv run --with playwright <script_path>`
+4. Parse the JSON output from the script
+
 ## Instructions
 
 - Read the `e2e_test_file`
 - Digest the `User Story` to first understand what we're validating
+- IMPORTANT: Check if Playwright MCP tools are available. If NOT, use the Python fallback approach
 - IMPORTANT: Execute the `Test Steps` detailed in the `e2e_test_file` using Playwright browser automation
 - Review the `Success Criteria` and if any of them fail, mark the test as failed and explain exactly what went wrong
 - Review the steps that say '**Verify**...' and if they fail, mark the test as failed and explain exactly what went wrong
