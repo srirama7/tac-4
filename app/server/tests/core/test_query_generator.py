@@ -210,7 +210,7 @@ class TestQueryGenerator:
         # Test that OpenAI is used when OpenAI key exists (regardless of preference)
         mock_openai_func.return_value = "What are the top selling products?"
 
-        with patch.dict(os.environ, {'OPENAI_API_KEY': 'openai-key', 'ANTHROPIC_API_KEY': 'anthropic-key'}):
+        with patch.dict(os.environ, {'OPENAI_API_KEY': 'openai-key', 'ANTHROPIC_API_KEY': 'anthropic-key'}, clear=True):
             schema_info = {'tables': {}}
 
             result = generate_natural_language_query("anthropic", schema_info)
