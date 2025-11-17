@@ -28,6 +28,14 @@ class QueryResponse(BaseModel):
     execution_time_ms: float
     error: Optional[str] = None
 
+# Random Query Generation Models
+class RandomQueryRequest(BaseModel):
+    pass  # No input needed
+
+class RandomQueryResponse(BaseModel):
+    query: str
+    error: Optional[str] = None
+
 # Database Schema Models
 class ColumnInfo(BaseModel):
     name: str

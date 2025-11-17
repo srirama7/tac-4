@@ -15,22 +15,23 @@ document.addEventListener('DOMContentLoaded', () => {
 function initializeQueryInput() {
   const queryInput = document.getElementById('query-input') as HTMLTextAreaElement;
   const queryButton = document.getElementById('query-button') as HTMLButtonElement;
-  
+  const generateQueryButton = document.getElementById('generate-query-button') as HTMLButtonElement;
+
   queryButton.addEventListener('click', async () => {
     const query = queryInput.value.trim();
     if (!query) return;
-    
+
     queryButton.disabled = true;
     queryButton.innerHTML = '<span class="loading"></span>';
-    
+
     try {
       const response = await api.processQuery({
         query,
         llm_provider: 'openai'  // Default to OpenAI
       });
-      
+
       displayResults(response, query);
-      
+
       // Clear the input field on success
       queryInput.value = '';
     } catch (error) {
@@ -40,7 +41,31 @@ function initializeQueryInput() {
       queryButton.textContent = 'Query';
     }
   });
-  
+
+  // Generate Random Query Button
+  generateQueryButton.addEventListener('click', async () => {
+    generateQueryButton.disabled = true;
+    const originalText = generateQueryButton.textContent;
+    generateQueryButton.innerHTML = '<span class="loading"></span> Generating...';
+
+    try {
+      const response = await api.generateRandomQuery();
+
+      if (response.error) {
+        displayError(response.error);
+      } else {
+        // Overwrite the query input field with the generated query
+        queryInput.value = response.query;
+        queryInput.focus();
+      }
+    } catch (error) {
+      displayError(error instanceof Error ? error.message : 'Failed to generate query');
+    } finally {
+      generateQueryButton.disabled = false;
+      generateQueryButton.textContent = originalText || 'Generate Random Query';
+    }
+  });
+
   // Allow Cmd+Enter (Mac) or Ctrl+Enter (Windows/Linux) to submit
   queryInput.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {

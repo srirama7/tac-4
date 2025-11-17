@@ -5,6 +5,7 @@ A web application that converts natural language queries to SQL using AI, built 
 ## Features
 
 - 🗣️ Natural language to SQL conversion using OpenAI or Anthropic
+- 🎲 Random query generation for data exploration inspiration
 - 📁 Drag-and-drop file upload (.csv and .json)
 - 📊 Interactive table results display
 - 🔒 SQL injection protection
@@ -85,10 +86,16 @@ bun run dev
    - Use sample data buttons for quick testing
    - Or drag and drop your own .csv or .json files
    - Uploading a file with the same name will overwrite the existing table
-2. **Query Your Data**: Type a natural language query like "Show me all users who signed up last week"
+2. **Generate Random Queries**: Click "Generate Random Query" to get AI-generated query suggestions
+   - The button analyzes your current database schema and generates contextual queries
+   - Generated queries are limited to two sentences and vary in type (aggregations, filters, joins, etc.)
+   - Click multiple times to get different query ideas based on your data
+   - Useful for discovering new ways to explore your data
+3. **Query Your Data**: Type a natural language query like "Show me all users who signed up last week"
    - Press `Cmd+Enter` (Mac) or `Ctrl+Enter` (Windows/Linux) to run the query
-3. **View Results**: See the generated SQL and results in a table format
-4. **Manage Tables**: Click the × button on any table to remove it
+   - Or use a generated query from the "Generate Random Query" button
+4. **View Results**: See the generated SQL and results in a table format
+5. **Manage Tables**: Click the × button on any table to remove it
 
 ## Development
 
@@ -130,6 +137,7 @@ bun run preview            # Preview production build
 
 - `POST /api/upload` - Upload CSV/JSON file
 - `POST /api/query` - Process natural language query
+- `POST /api/generate-query` - Generate random natural language query
 - `GET /api/schema` - Get database schema
 - `POST /api/insights` - Generate column insights
 - `GET /api/health` - Health check

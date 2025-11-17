@@ -25,6 +25,16 @@ interface QueryResponse {
   error?: string;
 }
 
+// Random Query Generation Types
+interface RandomQueryRequest {
+  // Empty - no input needed
+}
+
+interface RandomQueryResponse {
+  query: string;
+  error?: string;
+}
+
 // Database Schema Types
 interface ColumnInfo {
   name: string;
