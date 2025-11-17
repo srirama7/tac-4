@@ -17,10 +17,12 @@ from core.data_models import (
     InsightsResponse,
     HealthCheckResponse,
     TableSchema,
-    ColumnInfo
+    ColumnInfo,
+    GenerateQueryRequest,
+    GenerateQueryResponse
 )
 from core.file_processor import convert_csv_to_sqlite, convert_json_to_sqlite, convert_jsonl_to_sqlite
-from core.llm_processor import generate_sql
+from core.llm_processor import generate_sql, generate_natural_language_query
 from core.sql_processor import execute_sql_safely, get_database_schema
 from core.insights import generate_insights
 from core.sql_security import (
@@ -238,6 +240,41 @@ async def health_check() -> HealthCheckResponse:
             uptime_seconds=0
         )
 
+@app.post("/api/generate-query", response_model=GenerateQueryResponse)
+async def generate_query_endpoint(request: GenerateQueryRequest) -> GenerateQueryResponse:
+    """Generate a natural language query based on database schema"""
+    try:
+        # Get database schema
+        schema_info = get_database_schema()
+
+        # Check if database has any tables
+        if not schema_info.get('tables') or len(schema_info['tables']) == 0:
+            return GenerateQueryResponse(
+                query="Upload some data first to generate queries!",
+                table_count=0
+            )
+
+        # Determine LLM provider (default to "openai" if not specified)
+        llm_provider = request.llm_provider if request.llm_provider else "openai"
+
+        # Generate natural language query
+        query = generate_natural_language_query(llm_provider, schema_info)
+
+        response = GenerateQueryResponse(
+            query=query,
+            table_count=len(schema_info['tables'])
+        )
+        logger.info(f"[SUCCESS] Query generated: {query[:50]}... (tables: {len(schema_info['tables'])})")
+        return response
+    except Exception as e:
+        logger.error(f"[ERROR] Query generation failed: {str(e)}")
+        logger.error(f"[ERROR] Full traceback:\n{traceback.format_exc()}")
+        return GenerateQueryResponse(
+            query="",
+            table_count=0,
+            error=str(e)
+        )
+
 @app.delete("/api/table/{table_name}")
 async def delete_table(table_name: str):
     """Delete a table from the database"""
@@ -247,14 +284,14 @@ async def delete_table(table_name: str):
             validate_identifier(table_name, "table")
         except SQLSecurityError as e:
             raise HTTPException(400, str(e))
-        
+
         conn = sqlite3.connect("db/database.db")
-        
+
         # Check if table exists using secure method
         if not check_table_exists(conn, table_name):
             conn.close()
             raise HTTPException(404, f"Table '{table_name}' not found")
-        
+
         # Drop the table using safe query execution with DDL permission
         execute_query_safely(
             conn,
@@ -264,7 +301,7 @@ async def delete_table(table_name: str):
         )
         conn.commit()
         conn.close()
-        
+
         response = {"message": f"Table '{table_name}' deleted successfully"}
         logger.info(f"[SUCCESS] Table deleted: {table_name}")
         return response

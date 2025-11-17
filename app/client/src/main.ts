@@ -6,6 +6,7 @@ import { api } from './api/client'
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
   initializeQueryInput();
+  initializeQueryGenerator();
   initializeFileUpload();
   initializeModal();
   loadDatabaseSchema();
@@ -45,6 +46,38 @@ function initializeQueryInput() {
   queryInput.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       queryButton.click();
+    }
+  });
+}
+
+// Query Generator Functionality
+function initializeQueryGenerator() {
+  const generateQueryButton = document.getElementById('generate-query-button') as HTMLButtonElement;
+  const queryInput = document.getElementById('query-input') as HTMLTextAreaElement;
+
+  generateQueryButton.addEventListener('click', async () => {
+    generateQueryButton.disabled = true;
+    const originalText = generateQueryButton.textContent;
+    generateQueryButton.innerHTML = '<span class="loading"></span>';
+
+    try {
+      const response = await api.generateQuery({
+        llm_provider: 'openai'  // Default to OpenAI
+      });
+
+      if (response.error) {
+        displayError(response.error);
+      } else {
+        // Populate the query input field with the generated query
+        queryInput.value = response.query;
+        // Focus the input field
+        queryInput.focus();
+      }
+    } catch (error) {
+      displayError(error instanceof Error ? error.message : 'Failed to generate query');
+    } finally {
+      generateQueryButton.disabled = false;
+      generateQueryButton.textContent = originalText || 'Generate Query';
     }
   });
 }

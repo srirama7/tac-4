@@ -80,3 +80,12 @@ class HealthCheckResponse(BaseModel):
     tables_count: int
     version: str = "1.0.0"
     uptime_seconds: float
+
+# Query Generator Models
+class GenerateQueryRequest(BaseModel):
+    llm_provider: Optional[Literal["openai", "anthropic"]] = None
+
+class GenerateQueryResponse(BaseModel):
+    query: str
+    table_count: int
+    error: Optional[str] = None

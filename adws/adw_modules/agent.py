@@ -45,7 +45,7 @@ def parse_jsonl_output(
         Tuple of (all_messages, result_message) where result_message is None if not found
     """
     try:
-        with open(output_file, "r") as f:
+        with open(output_file, "r", encoding='utf-8', errors='replace') as f:
             # Read all lines and parse each as JSON
             messages = [json.loads(line) for line in f if line.strip()]
 
@@ -78,7 +78,7 @@ def convert_jsonl_to_json(jsonl_file: str) -> str:
     messages, _ = parse_jsonl_output(jsonl_file)
 
     # Write as JSON array
-    with open(json_file, "w") as f:
+    with open(json_file, "w", encoding='utf-8', errors='replace') as f:
         json.dump(messages, f, indent=2)
 
     print(f"Created JSON file: {json_file}")
@@ -124,6 +124,9 @@ def get_claude_env() -> Dict[str, str]:
         "SHELL": os.getenv("SHELL"),
         "TERM": os.getenv("TERM"),
         "SYSTEMROOT": os.getenv("SYSTEMROOT"),  # Windows system root
+        # Force UTF-8 encoding for Python subprocesses (Windows fix)
+        "PYTHONUTF8": "1",
+        "PYTHONIOENCODING": "utf-8",
     }
 
     # Only add GitHub tokens if GITHUB_PAT exists
