@@ -43,8 +43,8 @@ def setup_logger(adw_id: str, trigger_type: str = "adw_plan_build") -> logging.L
     # Clear any existing handlers to avoid duplicates
     logger.handlers.clear()
     
-    # File handler - captures everything
-    file_handler = logging.FileHandler(log_file, mode='a')
+    # File handler - captures everything with UTF-8 encoding to handle emoji characters
+    file_handler = logging.FileHandler(log_file, mode='a', encoding='utf-8', errors='replace')
     file_handler.setLevel(logging.DEBUG)
     
     # Console handler - INFO and above with UTF-8 encoding and error handling for Windows

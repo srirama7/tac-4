@@ -1,0 +1,18 @@
+{
+  "test_name": "Generate Query Functionality",
+  "status": "failed",
+  "screenshots": [
+    "C:\\Users\\amogh\\Downloads\\tac5\\tac-5\\agents\\ff7ca896\\e2e_test_runner_1_2\\img\\query_generator\\01_initial_state.png",
+    "C:\\Users\\amogh\\Downloads\\tac5\\tac-5\\agents\\ff7ca896\\e2e_test_runner_1_2\\img\\query_generator\\02_uploaded_table.png",
+    "C:\\Users\\amogh\\Downloads\\tac5\\tac-5\\agents\\ff7ca896\\e2e_test_runner_1_2\\img\\query_generator\\03_first_generated_query.png",
+    "C:\\Users\\amogh\\Downloads\\tac5\\tac-5\\agents\\ff7ca896\\e2e_test_runner_1_2\\img\\query_generator\\04_query_results.png"
+  ],
+  "error": "Unexpected error: page.screenshot: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - taking page screenshot\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\u001b[2m  - fonts loaded\u001b[22m\n\nStack: page.screenshot: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - taking page screenshot\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\u001b[2m  - fonts loaded\u001b[22m\n\n    at runTest (C:\\Users\\amogh\\Downloads\\tac5\\tac-5\\e2e_test_query_generator.js:195:16)",
+  "step_failures": [
+    "(Step 12 ❌) Query text is empty after clicking Generate Query",
+    "(Step 13 ❌) Generated query does not reference the \"users\" table",
+    "(Step 16 ❌) Query execution failed",
+    "(Step 18 ❌) SQL translation not displayed",
+    "(Step 22 ❌) Second generated query is identical to the first"
+  ]
+}

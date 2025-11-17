@@ -1,0 +1,11 @@
+{
+  "test_name": "Basic Query Execution",
+  "status": "passed",
+  "screenshots": [
+    "C:\\Users\\amogh\\Downloads\\tac5\\tac-5\\agents\\ff7ca896\\e2e_test_runner_1_0\\img\\basic_query\\01_initial_state.png",
+    "C:\\Users\\amogh\\Downloads\\tac5\\tac-5\\agents\\ff7ca896\\e2e_test_runner_1_0\\img\\basic_query\\02_query_input.png",
+    "C:\\Users\\amogh\\Downloads\\tac5\\tac-5\\agents\\ff7ca896\\e2e_test_runner_1_0\\img\\basic_query\\03_sql_translation.png",
+    "C:\\Users\\amogh\\Downloads\\tac5\\tac-5\\agents\\ff7ca896\\e2e_test_runner_1_0\\img\\basic_query\\04_results.png"
+  ],
+  "error": null
+}
