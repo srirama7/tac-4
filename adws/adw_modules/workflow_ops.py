@@ -139,10 +139,17 @@ def build_plan(
     issue: GitHubIssue, command: str, adw_id: str, logger: logging.Logger
 ) -> AgentPromptResponse:
     """Build implementation plan for the issue using the specified command."""
+    # Use minimal issue JSON to avoid command line length limits
+    # Only include essential fields: number, title, body
+    minimal_issue_json = issue.model_dump_json(
+        by_alias=True,
+        include={"number", "title", "body"}
+    )
+
     issue_plan_template_request = AgentTemplateRequest(
         agent_name=AGENT_PLANNER,
         slash_command=command,
-        args=[str(issue.number), adw_id, issue.model_dump_json(by_alias=True)],
+        args=[str(issue.number), adw_id, minimal_issue_json],
         adw_id=adw_id,
         model="sonnet",
     )
@@ -266,10 +273,16 @@ def create_commit(
     # Create unique committer agent name by suffixing '_committer'
     unique_agent_name = f"{agent_name}_committer"
 
+    # Use minimal issue JSON to avoid command line length limits
+    minimal_issue_json = issue.model_dump_json(
+        by_alias=True,
+        include={"number", "title", "body"}
+    )
+
     request = AgentTemplateRequest(
         agent_name=unique_agent_name,
         slash_command="/commit",
-        args=[agent_name, issue_type, issue.model_dump_json(by_alias=True)],
+        args=[agent_name, issue_type, minimal_issue_json],
         adw_id=adw_id,
         model="sonnet",
     )
@@ -298,20 +311,39 @@ def create_pull_request(
     adw_id = state.get("adw_id")
     
     # If we don't have issue data, try to construct minimal data
+    # Always use minimal JSON to avoid command line length limits
     if not issue:
         issue_data = state.get("issue", {})
-        issue_json = json.dumps(issue_data) if issue_data else "{}"
+        # Extract only essential fields
+        minimal_data = {
+            "number": issue_data.get("number"),
+            "title": issue_data.get("title"),
+            "body": issue_data.get("body")
+        }
+        issue_json = json.dumps(minimal_data) if issue_data else "{}"
     elif isinstance(issue, dict):
         # Try to reconstruct as GitHubIssue model which handles datetime serialization
         from adw_modules.data_types import GitHubIssue
         try:
             issue_model = GitHubIssue(**issue)
-            issue_json = issue_model.model_dump_json(by_alias=True)
+            issue_json = issue_model.model_dump_json(
+                by_alias=True,
+                include={"number", "title", "body"}
+            )
         except Exception:
-            # Fallback: use json.dumps with default str converter for datetime
-            issue_json = json.dumps(issue, default=str)
+            # Fallback: extract minimal fields from dict
+            minimal_data = {
+                "number": issue.get("number"),
+                "title": issue.get("title"),
+                "body": issue.get("body")
+            }
+            issue_json = json.dumps(minimal_data, default=str)
     else:
-        issue_json = issue.model_dump_json(by_alias=True)
+        # Use minimal issue JSON
+        issue_json = issue.model_dump_json(
+            by_alias=True,
+            include={"number", "title", "body"}
+        )
     
     request = AgentTemplateRequest(
         agent_name=AGENT_PR_CREATOR,
