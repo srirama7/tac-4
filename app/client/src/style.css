@@ -79,8 +79,15 @@ h2 {
 
 .query-controls {
   display: flex;
+  justify-content: space-between;
   gap: 1rem;
   margin-top: 1rem;
+  align-items: center;
+}
+
+.primary-actions {
+  display: flex;
+  gap: 1rem;
   align-items: center;
 }
 
@@ -122,6 +129,13 @@ h2 {
 .secondary-button:hover {
   background: var(--primary-color);
   color: white;
+}
+
+.secondary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: white;
+  color: var(--primary-color);
 }
 
 .toggle-button {

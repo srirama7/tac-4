@@ -139,10 +139,16 @@ def build_plan(
     issue: GitHubIssue, command: str, adw_id: str, logger: logging.Logger
 ) -> AgentPromptResponse:
     """Build implementation plan for the issue using the specified command."""
+    # Use minimal issue JSON to avoid command line length limits on Windows
+    minimal_issue_json = issue.model_dump_json(
+        by_alias=True,
+        include={"number", "title", "body"}
+    )
+
     issue_plan_template_request = AgentTemplateRequest(
         agent_name=AGENT_PLANNER,
         slash_command=command,
-        args=[str(issue.number), adw_id, issue.model_dump_json(by_alias=True)],
+        args=[str(issue.number), adw_id, minimal_issue_json],
         adw_id=adw_id,
         model="sonnet",
     )
@@ -266,10 +272,16 @@ def create_commit(
     # Create unique committer agent name by suffixing '_committer'
     unique_agent_name = f"{agent_name}_committer"
 
+    # Use minimal issue JSON to avoid command line length limits on Windows
+    minimal_issue_json = issue.model_dump_json(
+        by_alias=True,
+        include={"number", "title", "body"}
+    )
+
     request = AgentTemplateRequest(
         agent_name=unique_agent_name,
         slash_command="/commit",
-        args=[agent_name, issue_type, issue.model_dump_json(by_alias=True)],
+        args=[agent_name, issue_type, minimal_issue_json],
         adw_id=adw_id,
         model="sonnet",
     )
@@ -306,12 +318,21 @@ def create_pull_request(
         from adw_modules.data_types import GitHubIssue
         try:
             issue_model = GitHubIssue(**issue)
-            issue_json = issue_model.model_dump_json(by_alias=True)
+            # Use minimal issue JSON to avoid command line length limits on Windows
+            issue_json = issue_model.model_dump_json(
+                by_alias=True,
+                include={"number", "title", "body"}
+            )
         except Exception:
-            # Fallback: use json.dumps with default str converter for datetime
-            issue_json = json.dumps(issue, default=str)
+            # Fallback: use json.dumps with minimal data
+            minimal_data = {k: issue.get(k) for k in ["number", "title", "body"] if k in issue}
+            issue_json = json.dumps(minimal_data, default=str)
     else:
-        issue_json = issue.model_dump_json(by_alias=True)
+        # Use minimal issue JSON to avoid command line length limits on Windows
+        issue_json = issue.model_dump_json(
+            by_alias=True,
+            include={"number", "title", "body"}
+        )
     
     request = AgentTemplateRequest(
         agent_name=AGENT_PR_CREATOR,

@@ -139,10 +139,16 @@ def git_branch(
     # Remove the leading slash from issue_class for the branch name
     issue_type = issue_class.replace("/", "")
 
+    # Use minimal issue JSON to avoid command line length limits on Windows
+    minimal_issue_json = issue.model_dump_json(
+        by_alias=True,
+        include={"number", "title", "body"}
+    )
+
     request = AgentTemplateRequest(
         agent_name=AGENT_BRANCH_GENERATOR,
         slash_command="/generate_branch_name",
-        args=[issue_type, adw_id, issue.model_dump_json(by_alias=True)],
+        args=[issue_type, adw_id, minimal_issue_json],
         adw_id=adw_id,
         model="sonnet",
     )

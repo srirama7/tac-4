@@ -6,6 +6,7 @@ import { api } from './api/client'
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
   initializeQueryInput();
+  initializeGenerateQueryButton();
   initializeFileUpload();
   initializeModal();
   loadDatabaseSchema();
@@ -45,6 +46,38 @@ function initializeQueryInput() {
   queryInput.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       queryButton.click();
+    }
+  });
+}
+
+// Generate Query Button Functionality
+function initializeGenerateQueryButton() {
+  const generateButton = document.getElementById('generate-query-button') as HTMLButtonElement;
+  const queryInput = document.getElementById('query-input') as HTMLTextAreaElement;
+
+  generateButton.addEventListener('click', async () => {
+    // Disable button and show loading state
+    generateButton.disabled = true;
+    const originalText = generateButton.textContent;
+    generateButton.innerHTML = '<span class="loading"></span>';
+
+    try {
+      const response = await api.generateQuery();
+
+      if (response.error) {
+        displayError(response.error);
+      } else {
+        // Overwrite the query input field with the generated query
+        queryInput.value = response.query;
+        // Focus the input field
+        queryInput.focus();
+      }
+    } catch (error) {
+      displayError(error instanceof Error ? error.message : 'Failed to generate query');
+    } finally {
+      // Re-enable button and restore original text
+      generateButton.disabled = false;
+      generateButton.textContent = originalText || 'Generate Query';
     }
   });
 }
