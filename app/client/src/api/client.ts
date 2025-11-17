@@ -75,5 +75,16 @@ export const api = {
   // Health check
   async healthCheck(): Promise<HealthCheckResponse> {
     return apiRequest<HealthCheckResponse>('/health');
+  },
+
+  // Generate natural language query
+  async generateNLQuery(request: NLQueryGeneratorRequest = {}): Promise<NLQueryGeneratorResponse> {
+    return apiRequest<NLQueryGeneratorResponse>('/generate-nl-query', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(request)
+    });
   }
 };
