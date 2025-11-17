@@ -44,11 +44,16 @@ Each screenshot should be saved with a descriptive name that reflects what is be
 
 ## Report
 
-- Exclusively return the JSON output as specified in the test file
-- Capture any unexpected errors
+- CRITICAL: Your FINAL response must contain ONLY the JSON output in a markdown code block
+- The JSON must follow the exact format specified below
+- You may use intermediate responses during test execution for progress updates
+- Your LAST message must contain the final JSON result wrapped in a markdown code block
+- Capture any unexpected errors in the "error" field
 - IMPORTANT: Ensure all screenshots are saved in the `Screenshot Directory`
 
 ### Output Format
+
+Your final response must contain this JSON structure wrapped in a markdown code block:
 
 ```json
 {
@@ -58,6 +63,21 @@ Each screenshot should be saved with a descriptive name that reflects what is be
     "<absolute path to codebase>/agents/<adw_id>/<agent_name>/img/<test name>/01_<descriptive name>.png",
     "<absolute path to codebase>/agents/<adw_id>/<agent_name>/img/<test name>/02_<descriptive name>.png",
     "<absolute path to codebase>/agents/<adw_id>/<agent_name>/img/<test name>/03_<descriptive name>.png"
+  ],
+  "error": null
+}
+```
+
+Example of a properly formatted final response:
+
+```json
+{
+  "test_name": "Basic Query Execution",
+  "status": "passed",
+  "screenshots": [
+    "/c/Users/amogh/Downloads/tac5/tac-5/agents/abc12345/test_e2e/img/basic_query/01_initial_state.png",
+    "/c/Users/amogh/Downloads/tac5/tac-5/agents/abc12345/test_e2e/img/basic_query/02_query_input.png",
+    "/c/Users/amogh/Downloads/tac5/tac-5/agents/abc12345/test_e2e/img/basic_query/03_results.png"
   ],
   "error": null
 }
