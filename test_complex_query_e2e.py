@@ -27,8 +27,23 @@ def run_test():
             context = browser.new_context(viewport={"width": 1280, "height": 720})
             page = context.new_page()
 
-            print("Step 1: Navigate to the Application URL")
+            print("Step 0: Load sample users data")
             page.goto(APPLICATION_URL)
+            page.wait_for_load_state("networkidle")
+            time.sleep(1)
+
+            # Click Upload Data button to open modal
+            upload_button = page.locator('button:has-text("Upload Data")').first
+            upload_button.click()
+            time.sleep(0.5)
+
+            # Click on users sample data button
+            users_button = page.locator('button[data-sample="users"], .sample-button:has-text("users")').first
+            users_button.click()
+            time.sleep(3)  # Wait for data to load
+
+            print("Step 1: Navigate to the Application URL")
+            # Already navigated, just verify we're on the page
             page.wait_for_load_state("networkidle")
             time.sleep(1)
 
