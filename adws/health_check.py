@@ -61,42 +61,31 @@ class HealthCheckResult(BaseModel):
 
 def check_env_vars() -> CheckResult:
     """Check required environment variables."""
-    required_vars = {
-        "ANTHROPIC_API_KEY": "Anthropic API Key for Claude Code",
-        "CLAUDE_CODE_PATH": "Path to Claude Code CLI (defaults to 'claude')",
-    }
-
+    # No required vars - Claude Code can work with local auth
     optional_vars = {
+        "ANTHROPIC_API_KEY": "(Optional) Anthropic API Key for Claude Code - alternatively use 'claude login' for local authentication",
+        "CLAUDE_CODE_PATH": "(Optional) Path to Claude Code CLI (defaults to 'claude')",
         "GITHUB_PAT": "(Optional) GitHub Personal Access Token - only needed if you want ADW to use a different GitHub account than 'gh auth login'",
         "E2B_API_KEY": "(Optional) E2B API Key for sandbox environments",
         "CLOUDFLARED_TUNNEL_TOKEN": "(Optional) Cloudflare tunnel token for webhook exposure",
     }
 
-    missing_required = []
     missing_optional = []
-
-    # Check required vars
-    for var, desc in required_vars.items():
-        if not os.getenv(var):
-            if var == "CLAUDE_CODE_PATH":
-                # This has a default, so not critical
-                continue
-            missing_required.append(f"{var} ({desc})")
 
     # Check optional vars
     for var, desc in optional_vars.items():
         if not os.getenv(var):
-            missing_optional.append(f"{var} ({desc})")
+            missing_optional.append(f"{var} {desc}")
 
-    success = len(missing_required) == 0
+    # Determine auth method
+    auth_method = "ANTHROPIC_API_KEY" if os.getenv("ANTHROPIC_API_KEY") else "Claude Code local auth (claude login)"
 
     return CheckResult(
-        success=success,
-        error="Missing required environment variables" if not success else None,
+        success=True,
         details={
-            "missing_required": missing_required,
             "missing_optional": missing_optional,
             "claude_code_path": os.getenv("CLAUDE_CODE_PATH", "claude"),
+            "auth_method": auth_method,
         },
     )
 
@@ -135,7 +124,7 @@ def check_claude_code() -> CheckResult:
     # First check if Claude Code is installed
     try:
         result = subprocess.run(
-            [claude_path, "--version"], capture_output=True, text=True
+            [claude_path, "--version"], capture_output=True, text=True, encoding="utf-8", errors="replace"
         )
         if result.returncode != 0:
             return CheckResult(
@@ -148,13 +137,26 @@ def check_claude_code() -> CheckResult:
             error=f"Claude Code CLI not found at '{claude_path}'. Please install or set CLAUDE_CODE_PATH correctly.",
         )
 
+    # Determine auth method
+    has_api_key = bool(os.getenv("ANTHROPIC_API_KEY"))
+    auth_method = "API Key" if has_api_key else "Local auth (claude login)"
+
     # Test with a simple prompt
     test_prompt = "What is 2+2? Just respond with the number, nothing else."
 
-    # Prepare environment
-    env = os.environ.copy()
-    if os.getenv("GITHUB_PAT"):
-        env["GH_TOKEN"] = os.getenv("GITHUB_PAT")
+    # Prepare environment - inherit parent env for local auth if no API key
+    if has_api_key:
+        env = {
+            "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY"),
+            "PATH": os.environ.get("PATH", ""),
+            "HOME": os.environ.get("HOME", ""),
+            "USER": os.environ.get("USER", ""),
+        }
+        if os.getenv("GITHUB_PAT"):
+            env["GH_TOKEN"] = os.getenv("GITHUB_PAT")
+    else:
+        # Use None to inherit parent environment for local auth
+        env = None
 
     try:
         # Create temporary file for output
@@ -169,16 +171,16 @@ def check_claude_code() -> CheckResult:
             "-p",
             test_prompt,
             "--model",
-            "claude-3-5-haiku-20241022",
+            "haiku",
             "--output-format",
             "stream-json",
             "--verbose",
             "--dangerously-skip-permissions",
         ]
 
-        with open(output_file, "w") as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             result = subprocess.run(
-                cmd, stdout=f, stderr=subprocess.PIPE, text=True, env=env, timeout=30
+                cmd, stdout=f, stderr=subprocess.PIPE, text=True, env=env, timeout=30, encoding="utf-8", errors="replace"
             )
 
         if result.returncode != 0:
@@ -191,7 +193,7 @@ def check_claude_code() -> CheckResult:
         response_text = ""
 
         try:
-            with open(output_file, "r") as f:
+            with open(output_file, "r", encoding="utf-8", errors="replace") as f:
                 for line in f:
                     if line.strip():
                         msg = json.loads(line)
@@ -209,6 +211,7 @@ def check_claude_code() -> CheckResult:
             details={
                 "test_passed": "4" in response_text,
                 "response": response_text[:100] if response_text else "No response",
+                "auth_method": auth_method,
             },
         )
 
@@ -224,7 +227,7 @@ def check_github_cli() -> CheckResult:
     """Check if GitHub CLI is installed and authenticated."""
     try:
         # Check if gh is installed
-        result = subprocess.run(["gh", "--version"], capture_output=True, text=True)
+        result = subprocess.run(["gh", "--version"], capture_output=True, text=True, encoding="utf-8", errors="replace")
         if result.returncode != 0:
             return CheckResult(success=False, error="GitHub CLI (gh) is not installed")
 
@@ -234,7 +237,7 @@ def check_github_cli() -> CheckResult:
             env["GH_TOKEN"] = os.getenv("GITHUB_PAT")
 
         result = subprocess.run(
-            ["gh", "auth", "status"], capture_output=True, text=True, env=env
+            ["gh", "auth", "status"], capture_output=True, text=True, env=env, encoding="utf-8", errors="replace"
         )
 
         authenticated = result.returncode == 0
@@ -248,7 +251,7 @@ def check_github_cli() -> CheckResult:
     except FileNotFoundError:
         return CheckResult(
             success=False,
-            error="GitHub CLI (gh) is not installed. Install with: brew install gh",
+            error="GitHub CLI (gh) is not installed. Install with: brew install gh (or winget install GitHub.cli on Windows)",
             details={"installed": False},
         )
 
@@ -291,19 +294,13 @@ def run_health_check() -> HealthCheckResult:
         if gh_check.error:
             result.errors.append(gh_check.error)
 
-    # Check Claude Code - only if we have the API key
-    if os.getenv("ANTHROPIC_API_KEY"):
-        claude_check = check_claude_code()
-        result.checks["claude_code"] = claude_check
-        if not claude_check.success:
-            result.success = False
-            if claude_check.error:
-                result.errors.append(claude_check.error)
-    else:
-        result.checks["claude_code"] = CheckResult(
-            success=False,
-            details={"skipped": True, "reason": "ANTHROPIC_API_KEY not set"},
-        )
+    # Check Claude Code - works with both API key and local auth
+    claude_check = check_claude_code()
+    result.checks["claude_code"] = claude_check
+    if not claude_check.success:
+        result.success = False
+        if claude_check.error:
+            result.errors.append(claude_check.error)
 
     return result
 
@@ -365,16 +362,18 @@ def main():
     # Print next steps
     if not result.success:
         print("\n📝 Next Steps:")
-        if any("ANTHROPIC_API_KEY" in e for e in result.errors):
-            print("   1. Set ANTHROPIC_API_KEY in your .env file")
-        if any("GITHUB_PAT" in e for e in result.errors):
-            print("   2. Set GITHUB_PAT in your .env file")
+        step_num = 1
+        if any("Claude Code" in e for e in result.errors):
+            print(f"   {step_num}. Install Claude Code CLI or authenticate with: claude login")
+            step_num += 1
         if any("GitHub CLI" in e for e in result.errors):
-            print("   3. Install GitHub CLI: brew install gh")
-            print("   4. Authenticate: gh auth login")
+            print(f"   {step_num}. Install GitHub CLI: brew install gh (or winget install GitHub.cli on Windows)")
+            step_num += 1
+            print(f"   {step_num}. Authenticate: gh auth login")
+            step_num += 1
         if any("disler" in w for w in result.warnings):
             print(
-                "   5. Fork/clone the repository and update git remote to your own repo"
+                f"   {step_num}. Fork/clone the repository and update git remote to your own repo"
             )
 
     # If issue number provided, post comment

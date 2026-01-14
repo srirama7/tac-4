@@ -5,6 +5,7 @@ import os
 import sys
 import uuid
 from datetime import datetime
+import io
 
 
 def make_adw_id() -> str:
@@ -37,12 +38,17 @@ def setup_logger(adw_id: str, trigger_type: str = "adw_plan_build") -> logging.L
     # Clear any existing handlers to avoid duplicates
     logger.handlers.clear()
     
-    # File handler - captures everything
-    file_handler = logging.FileHandler(log_file, mode='a')
+    # File handler - captures everything (with UTF-8 encoding)
+    file_handler = logging.FileHandler(log_file, mode='a', encoding='utf-8')
     file_handler.setLevel(logging.DEBUG)
-    
-    # Console handler - INFO and above
-    console_handler = logging.StreamHandler(sys.stdout)
+
+    # Console handler - INFO and above (with UTF-8 encoding for Windows compatibility)
+    # Create a UTF-8 wrapper for stdout to handle emojis on Windows
+    if sys.stdout.encoding != 'utf-8':
+        utf8_stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True)
+        console_handler = logging.StreamHandler(utf8_stdout)
+    else:
+        console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.INFO)
     
     # Format with timestamp for file
